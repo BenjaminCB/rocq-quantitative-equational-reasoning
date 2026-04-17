@@ -65,6 +65,13 @@
             rocqPackages.vsrocq-language-server
             rocq-core
             rocqPackages.stdlib
+
+            coqPackages.mathcomp
+            coqPackages.mathcomp-ssreflect
+            coqPackages.mathcomp-algebra
+            coqPackages.mathcomp-classical
+            coqPackages.mathcomp-reals
+            coqPackages.mathcomp-analysis
             jq
             rocq-watch
           ];
