@@ -84,8 +84,7 @@ Inductive derives (sig : signature) (X : Type)
 
 Definition theory sig X := context sig X -> qeq sig X -> Prop.
 
-Definition theory_of (S : list (context sig X * qeq sig X)) : theory sig X :=
-  fun sig phi => derives sig X (axioms S ++ ctx) phi.
+
 
 
     
