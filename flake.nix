@@ -4,12 +4,16 @@
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
     flake-utils.url = "github:numtide/flake-utils";
+    codex.url = "github:openai/codex";
+    codex-nix.url = "github:SecBear/codex-nix";
   };
 
   outputs = {
     self,
     nixpkgs,
     flake-utils,
+    codex,
+    codex-nix,
   }:
     flake-utils.lib.eachDefaultSystem (
       system: let
@@ -60,21 +64,23 @@
           default = pkgs.hello;
         };
         devShells.default = pkgs.mkShell {
-          nativeBuildInputs = with pkgs; [
-            vscode
-            rocqPackages.vsrocq-language-server
-            rocq-core
-            rocqPackages.stdlib
+          nativeBuildInputs =
+            (with pkgs; [
+              vscode
+              rocqPackages.vsrocq-language-server
+              rocq-core
+              rocqPackages.stdlib
 
-            coqPackages.mathcomp
-            coqPackages.mathcomp-ssreflect
-            coqPackages.mathcomp-algebra
-            coqPackages.mathcomp-classical
-            coqPackages.mathcomp-reals
-            coqPackages.mathcomp-analysis
-            jq
-            rocq-watch
-          ];
+              coqPackages.mathcomp
+              coqPackages.mathcomp-ssreflect
+              coqPackages.mathcomp-algebra
+              coqPackages.mathcomp-classical
+              coqPackages.mathcomp-reals
+              coqPackages.mathcomp-analysis
+              jq
+              rocq-watch
+            ])
+            ++ [codex-nix.packages.${system}.default];
 
           shellHook = ''
             export VSROCQTOP_PATH="$(which vsrocqtop)"
