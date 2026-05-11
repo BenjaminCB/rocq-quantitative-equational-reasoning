@@ -13,8 +13,8 @@
       notation is introduced for readability.
 
    2. The deducibility rules in the paper have the form
-        Gamma ` phi
-      where the *hypotheses* Gamma are drawn from a fixed ambient
+        Γ ` φ
+      where the *hypotheses* Γ are drawn from a fixed ambient
       context and the rule fires when those hypotheses are
       *provable* (not merely syntactically present).  Your
       original encoding used `In h ctx` which makes the rules
@@ -84,19 +84,19 @@ Arguments Var {sig X} _.
 Arguments App {sig X} _ _.
 
 (** Substitution: a map X → term sig X, extended homomorphically. *)
-Fixpoint subst_term {sig X} (sigma : X -> term sig X) (t : term sig X) : term sig X :=
+Fixpoint subst_term {sig X} (σ : X -> term sig X) (t : term sig X) : term sig X :=
   match t with
-  | Var x   => sigma x
-  | App f v => App f (Vector.map (subst_term sigma) v)
+  | Var x   => σ x
+  | App f v => App f (Vector.map (subst_term σ) v)
   end.
 
 (** Composition of substitutions. *)
-Definition subst_comp {sig X} (sigma tau : X -> term sig X) : X -> term sig X :=
-  fun x => subst_term sigma (tau x).
+Definition subst_comp {sig X} (σ τ : X -> term sig X) : X -> term sig X :=
+  fun x => subst_term σ (τ x).
 
 (** Substitution is a homomorphism (standard). *)
-Lemma subst_term_comp {sig X} (sigma tau : X -> term sig X) (t : term sig X) :
-  subst_term sigma (subst_term tau t) = subst_term (subst_comp sigma tau) t.
+Lemma subst_term_comp {sig X} (σ τ : X -> term sig X) (t : term sig X) :
+  subst_term σ (subst_term τ t) = subst_term (subst_comp σ τ) t.
 Proof.
   induction t.
   - reflexivity.
@@ -113,7 +113,7 @@ Admitted.
    §2  Quantitative equations and deducibility  (Def 2.1)
    ============================================================ *)
 
-(** A quantitative equation  t =_epsilon s  over terms. *)
+(** A quantitative equation  t =_ε s  over terms. *)
 Record qeq (sig : signature) (X : Type) := {
   lhs : term sig X;
   rhs : term sig X;
@@ -124,18 +124,18 @@ Notation "t ~[ e ] s" := {| lhs := t; rhs := s; eps := e |}
   (at level 70, no associativity).
 
 (** Lift substitution to equations. *)
-Definition subst_qeq {sig X} (sigma : X -> term sig X) (q : qeq sig X) : qeq sig X :=
-  {| lhs := subst_term sigma (lhs q);
-     rhs := subst_term sigma (rhs q);
+Definition subst_qeq {sig X} (σ : X -> term sig X) (q : qeq sig X) : qeq sig X :=
+  {| lhs := subst_term σ (lhs q);
+     rhs := subst_term σ (rhs q);
      eps := eps q |}.
 
 (** A *context* is a (finite) list of quantitative equations used
-    as hypotheses.  (The paper writes Gamma ⊆ V(TX).) *)
+    as hypotheses.  (The paper writes Γ ⊆ V(TX).) *)
 Definition ctx sig X := list (qeq sig X).
 
 (** Apply a substitution to every equation in a context. *)
-Definition subst_ctx {sig X} (sigma : X -> term sig X) (Gamma : ctx sig X) : ctx sig X :=
-  List.map (subst_qeq sigma) Gamma.
+Definition subst_ctx {sig X} (σ : X -> term sig X) (Γ : ctx sig X) : ctx sig X :=
+  List.map (subst_qeq σ) Γ.
 
 (** ----------------------------------------------------------------
     Definition 2.1 — Deducibility relation
@@ -143,101 +143,101 @@ Definition subst_ctx {sig X} (sigma : X -> term sig X) (Gamma : ctx sig X) : ctx
     We define a single inductive `derives` that corresponds to the
     smallest deducibility relation.  The rules follow the paper
     exactly; we add non-negativity guards where the paper implicitly
-    requires epsilon, epsilon' ∈ Q⁺.
+    requires ε, ε' ∈ Q⁺.
 
     Key fix vs. your original: the premises of Triang / Max / Arch
-    / NExp require the hypotheses to be *derivable* from Gamma (i.e.
-    `Gamma |- h`), not merely syntactically present in Gamma.  Using `In`
+    / NExp require the hypotheses to be *derivable* from Γ (i.e.
+    `Γ |- h`), not merely syntactically present in Γ.  Using `In`
     would only give a *monotone* relation, not closure under Cut.
     ---------------------------------------------------------------- *)
 
-Reserved Notation "Gamma |- phi" (at level 72).
+Reserved Notation "Γ |- φ" (at level 72).
 
 Inductive derives (sig : signature) (X : Type)
     : ctx sig X -> qeq sig X -> Prop :=
 
   (** (Refl)  ∅ ⊢ t =_0 t *)
-  | D_Refl : forall Gamma t,
-      Gamma |- (t ~[0] t)
+  | D_Refl : forall Γ t,
+      Γ |- (t ~[0] t)
 
-  (** (Symm)  {t =_epsilon s} ⊢ s =_epsilon t *)
-  | D_Symm : forall Gamma t s epsilon,
-      Qnn epsilon ->
-      Gamma |- (t ~[epsilon] s) ->
-      Gamma |- (s ~[epsilon] t)
+  (** (Symm)  {t =_ε s} ⊢ s =_ε t *)
+  | D_Symm : forall Γ t s ε,
+      Qnn ε ->
+      Γ |- (t ~[ε] s) ->
+      Γ |- (s ~[ε] t)
 
-  (** (Triang)  {t =_epsilon s, s =_epsilon' u} ⊢ t =_{epsilon+epsilon'} u *)
-  | D_Triang : forall Gamma t s u epsilon epsilon',
-      Qnn epsilon -> Qnn epsilon' ->
-      Gamma |- (t ~[epsilon]  s) ->
-      Gamma |- (s ~[epsilon'] u) ->
-      Gamma |- (t ~[epsilon + epsilon'] u)
+  (** (Triang)  {t =_ε s, s =_ε' u} ⊢ t =_{ε+ε'} u *)
+  | D_Triang : forall Γ t s u ε ε',
+      Qnn ε -> Qnn ε' ->
+      Γ |- (t ~[ε]  s) ->
+      Γ |- (s ~[ε'] u) ->
+      Γ |- (t ~[ε + ε'] u)
 
-  (** (Max)  for epsilon' > 0,  {t =_epsilon s} ⊢ t =_{epsilon+epsilon'} s *)
-  | D_Max : forall Gamma t s epsilon epsilon',
-      Qnn epsilon ->
-      0 < epsilon' ->
-      Gamma |- (t ~[epsilon] s) ->
-      Gamma |- (t ~[epsilon + epsilon'] s)
+  (** (Max)  for ε' > 0,  {t =_ε s} ⊢ t =_{ε+ε'} s *)
+  | D_Max : forall Γ t s ε ε',
+      Qnn ε ->
+      0 < ε' ->
+      Γ |- (t ~[ε] s) ->
+      Γ |- (t ~[ε + ε'] s)
 
-  (** (Arch)  for epsilon ≥ 0,  {t =_{epsilon'} s | epsilon' > epsilon} ⊢ t =_epsilon s
+  (** (Arch)  for ε ≥ 0,  {t =_{ε'} s | ε' > ε} ⊢ t =_ε s
       We encode the infinitary premise as a universally quantified
       Rocq hypothesis. *)
-  | D_Arch : forall Gamma t s epsilon,
-      Qnn epsilon ->
-      (forall epsilon', epsilon < epsilon' -> Gamma |- (t ~[epsilon'] s)) ->
-      Gamma |- (t ~[epsilon] s)
+  | D_Arch : forall Γ t s ε,
+      Qnn ε ->
+      (forall ε', ε < ε' -> Γ |- (t ~[ε'] s)) ->
+      Γ |- (t ~[ε] s)
 
-  (** (NExp)  f is non-expansive: if each t_i =_epsilon s_i then
-              f(t_1,…,t_n) =_epsilon f(s_1,…,s_n). *)
-  | D_NExp : forall Gamma (f : sym sig)
-               (ts ss : Vector.t (term sig X) (arity sig f)) epsilon,
-      Qnn epsilon ->
-      (forall i, Gamma |- (Vector.nth ts i ~[epsilon] Vector.nth ss i)) ->
-      Gamma |- (App f ts ~[epsilon] App f ss)
+  (** (NExp)  f is non-expansive: if each t_i =_ε s_i then
+              f(t_1,…,t_n) =_ε f(s_1,…,s_n). *)
+  | D_NExp : forall Γ (f : sym sig)
+               (ts ss : Vector.t (term sig X) (arity sig f)) ε,
+      Qnn ε ->
+      (forall i, Γ |- (Vector.nth ts i ~[ε] Vector.nth ss i)) ->
+      Γ |- (App f ts ~[ε] App f ss)
 
-  (** (Subst)  if Gamma ⊢ t =_epsilon s then sigma(Gamma) ⊢ sigma(t) =_epsilon sigma(s). *)
-  | D_Subst : forall Gamma t s epsilon (sigma : X -> term sig X),
-      Gamma |- (t ~[epsilon] s) ->
-      (subst_ctx sigma Gamma) |- (subst_term sigma t ~[epsilon] subst_term sigma s)
+  (** (Subst)  if Γ ⊢ t =_ε s then σ(Γ) ⊢ σ(t) =_ε σ(s). *)
+  | D_Subst : forall Γ t s ε (σ : X -> term sig X),
+      Γ |- (t ~[ε] s) ->
+      (subst_ctx σ Γ) |- (subst_term σ t ~[ε] subst_term σ s)
 
-  (** (Cut)  if Gamma ⊢ psi for all psi ∈ Gamma', and Gamma' ⊢ phi, then Gamma ⊢ phi. *)
-  | D_Cut : forall Gamma Gamma' phi,
-      (forall psi, In psi Gamma' -> Gamma |- psi) ->
-      Gamma' |- phi ->
-      Gamma  |- phi
+  (** (Cut)  if Γ ⊢ ψ for all ψ ∈ Γ', and Γ' ⊢ φ, then Γ ⊢ φ. *)
+  | D_Cut : forall Γ Γ' φ,
+      (forall ψ, In ψ Γ' -> Γ |- ψ) ->
+      Γ' |- φ ->
+      Γ  |- φ
 
-  (** (Assumpt)  if phi ∈ Gamma then Gamma ⊢ phi. *)
-  | D_Assumpt : forall Gamma phi,
-      In phi Gamma ->
-      Gamma |- phi
+  (** (Assumpt)  if φ ∈ Γ then Γ ⊢ φ. *)
+  | D_Assumpt : forall Γ φ,
+      In φ Γ ->
+      Γ |- φ
 
-  where "Gamma |- phi" := (derives Gamma phi).
+  where "Γ |- φ" := (derives Γ φ).
 
 (* ----------------------------------------------------------------
    Basic consequences of the rules
    ---------------------------------------------------------------- *)
 
-(** Weakening: if Gamma ⊢ phi and Gamma ⊆ Gamma' then Gamma' ⊢ phi. *)
-Lemma derives_weaken {sig X} (Gamma Gamma' : ctx sig X) phi :
-  (forall psi, In psi Gamma -> In psi Gamma') ->
-  Gamma  |- phi ->
-  Gamma' |- phi.
+(** Weakening: if Γ ⊢ φ and Γ ⊆ Γ' then Γ' ⊢ φ. *)
+Lemma derives_weaken {sig X} (Γ Γ' : ctx sig X) φ :
+  (forall ψ, In ψ Γ -> In ψ Γ') ->
+  Γ  |- φ ->
+  Γ' |- φ.
 Proof.
   intros Hsub Hd.
-  apply D_Cut with (Gamma' := Gamma).
-  - intros psi HIn. apply D_Assumpt. apply Hsub. exact HIn.
+  apply D_Cut with (Γ' := Γ).
+  - intros ψ HIn. apply D_Assumpt. apply Hsub. exact HIn.
   - exact Hd.
 Qed.
 
-(** The empty context can derive anything derivable from Gamma via Cut. *)
-Lemma derives_empty_cut {sig X} (Gamma : ctx sig X) phi :
-  [] |- phi ->
-  Gamma  |- phi.
+(** The empty context can derive anything derivable from Γ via Cut. *)
+Lemma derives_empty_cut {sig X} (Γ : ctx sig X) φ :
+  [] |- φ ->
+  Γ  |- φ.
 Proof.
   intro H.
-  apply D_Cut with (Gamma' := []).
-  - intros psi HIn. inversion HIn.
+  apply D_Cut with (Γ' := []).
+  - intros ψ HIn. inversion HIn.
   - exact H.
 Qed.
 
@@ -256,7 +256,7 @@ Qed.
    we simply lift to arbitrary contexts.
 
    The quantitative equational theory U induced by S is then:
-       U = { (Gamma, phi) | Gamma |-_S phi }
+       U = { (Γ, φ) | Γ |-_S φ }
    where |-_S is the smallest deducibility relation extending the
    rules of Def 2.1 *and* every element of S.
 
@@ -266,52 +266,52 @@ Qed.
 Definition axiom_set (sig : signature) (X : Type) :=
   ctx sig X -> qeq sig X -> Prop.
 
-(** `derives_S S Gamma phi` is the deducibility relation generated by
+(** `derives_S S Γ φ` is the deducibility relation generated by
     the rules of Def 2.1 plus S as extra axioms. *)
 Inductive derives_S {sig X} (S : axiom_set sig X)
     : ctx sig X -> qeq sig X -> Prop :=
 
-  | DS_Refl   : forall Gamma t,          derives_S S Gamma (t ~[0] t)
-  | DS_Symm   : forall Gamma t s epsilon,
-      Qnn epsilon -> derives_S S Gamma (t ~[epsilon] s) ->
-      derives_S S Gamma (s ~[epsilon] t)
-  | DS_Triang : forall Gamma t s u epsilon epsilon',
-      Qnn epsilon -> Qnn epsilon' ->
-      derives_S S Gamma (t ~[epsilon]  s) ->
-      derives_S S Gamma (s ~[epsilon'] u) ->
-      derives_S S Gamma (t ~[epsilon + epsilon'] u)
-  | DS_Max    : forall Gamma t s epsilon epsilon',
-      Qnn epsilon -> 0 < epsilon' ->
-      derives_S S Gamma (t ~[epsilon] s) ->
-      derives_S S Gamma (t ~[epsilon + epsilon'] s)
-  | DS_Arch   : forall Gamma t s epsilon,
-      Qnn epsilon ->
-      (forall epsilon', epsilon < epsilon' -> derives_S S Gamma (t ~[epsilon'] s)) ->
-      derives_S S Gamma (t ~[epsilon] s)
-  | DS_NExp   : forall Gamma (f : sym sig)
-                  (ts ss : Vector.t (term sig X) (arity sig f)) epsilon,
-      Qnn epsilon ->
-      (forall i, derives_S S Gamma (Vector.nth ts i ~[epsilon] Vector.nth ss i)) ->
-      derives_S S Gamma (App f ts ~[epsilon] App f ss)
-  | DS_Subst  : forall Gamma t s epsilon (sigma : X -> term sig X),
-      derives_S S Gamma (t ~[epsilon] s) ->
-      derives_S S (subst_ctx sigma Gamma) (subst_term sigma t ~[epsilon] subst_term sigma s)
-  | DS_Cut    : forall Gamma Gamma' phi,
-      (forall psi, In psi Gamma' -> derives_S S Gamma psi) ->
-      derives_S S Gamma' phi ->
-      derives_S S Gamma phi
-  | DS_Assumpt : forall Gamma phi,
-      In phi Gamma -> derives_S S Gamma phi
+  | DS_Refl   : forall Γ t,          derives_S S Γ (t ~[0] t)
+  | DS_Symm   : forall Γ t s ε,
+      Qnn ε -> derives_S S Γ (t ~[ε] s) ->
+      derives_S S Γ (s ~[ε] t)
+  | DS_Triang : forall Γ t s u ε ε',
+      Qnn ε -> Qnn ε' ->
+      derives_S S Γ (t ~[ε]  s) ->
+      derives_S S Γ (s ~[ε'] u) ->
+      derives_S S Γ (t ~[ε + ε'] u)
+  | DS_Max    : forall Γ t s ε ε',
+      Qnn ε -> 0 < ε' ->
+      derives_S S Γ (t ~[ε] s) ->
+      derives_S S Γ (t ~[ε + ε'] s)
+  | DS_Arch   : forall Γ t s ε,
+      Qnn ε ->
+      (forall ε', ε < ε' -> derives_S S Γ (t ~[ε'] s)) ->
+      derives_S S Γ (t ~[ε] s)
+  | DS_NExp   : forall Γ (f : sym sig)
+                  (ts ss : Vector.t (term sig X) (arity sig f)) ε,
+      Qnn ε ->
+      (forall i, derives_S S Γ (Vector.nth ts i ~[ε] Vector.nth ss i)) ->
+      derives_S S Γ (App f ts ~[ε] App f ss)
+  | DS_Subst  : forall Γ t s ε (σ : X -> term sig X),
+      derives_S S Γ (t ~[ε] s) ->
+      derives_S S (subst_ctx σ Γ) (subst_term σ t ~[ε] subst_term σ s)
+  | DS_Cut    : forall Γ Γ' φ,
+      (forall ψ, In ψ Γ' -> derives_S S Γ ψ) ->
+      derives_S S Γ' φ ->
+      derives_S S Γ φ
+  | DS_Assumpt : forall Γ φ,
+      In φ Γ -> derives_S S Γ φ
 
   (** The new constructor: every element of S is an axiom. *)
-  | DS_Axiom  : forall Gamma phi,
-      S Gamma phi -> derives_S S Gamma phi.
+  | DS_Axiom  : forall Γ φ,
+      S Γ φ -> derives_S S Γ φ.
 
 (** Definition 2.2.
     The quantitative equational theory induced by S is the set of
-    all unconditional inferences (Gamma, phi) derivable via derives_S. *)
+    all unconditional inferences (Γ, φ) derivable via derives_S. *)
 Definition qe_theory {sig X} (S : axiom_set sig X) : axiom_set sig X :=
-  fun Gamma phi => derives_S S Gamma phi.
+  fun Γ φ => derives_S S Γ φ.
 
 (** Consistency (Def 2.3): U is inconsistent if it derives x =_0 y
     for two distinct variables x y.  We parameterise over the
@@ -345,15 +345,15 @@ Definition algebra_ops (sig : signature) (A : PseudoMetricSpace) :=
   forall (f : sym sig),
     Vector.t (carrier A) (arity sig f) -> carrier A.
 
-(** Non-expansiveness: if d(a_i, b_i) ≤ epsilon for all i then
-    d(f(a), f(b)) ≤ epsilon. *)
+(** Non-expansiveness: if d(a_i, b_i) ≤ ε for all i then
+    d(f(a), f(b)) ≤ ε. *)
 Definition non_expansive {sig} (A : PseudoMetricSpace)
     (ops : algebra_ops sig A) : Prop :=
   forall (f : sym sig)
-         (as_ bs : Vector.t (carrier A) (arity sig f)) epsilon,
-    0 <= epsilon ->
-    (forall i, dist A (Vector.nth as_ i) (Vector.nth bs i) <= epsilon) ->
-    dist A (ops f as_) (ops f bs) <= epsilon.
+         (as_ bs : Vector.t (carrier A) (arity sig f)) ε,
+    0 <= ε ->
+    (forall i, dist A (Vector.nth as_ i) (Vector.nth bs i) <= ε) ->
+    dist A (ops f as_) (ops f bs) <= ε.
 
 (** Definition 3.1 — Quantitative Algebra. *)
 Record QAlgebra (sig : signature) := {
@@ -366,7 +366,7 @@ Record QAlgebra (sig : signature) := {
 Definition qa_carrier {sig} (A : QAlgebra sig) := carrier (qa_metric A).
 
 (** Definition 3.2 — Homomorphism of quantitative algebras.
-    A non-expansive Omega-algebra homomorphism. *)
+    A non-expansive Ω-algebra homomorphism. *)
 Record QAlgHom {sig} (A B : QAlgebra sig) := {
   hom_fun    : qa_carrier A -> qa_carrier B;
   hom_nexp   : forall a b,
@@ -397,33 +397,33 @@ Record QSubAlgebra {sig} (A B : QAlgebra sig) := {
    ============================================================ *)
 
 (** Definition 4.1 — Assignment.
-    An assignment iota : X → A, extended homomorphically to terms. *)
-Fixpoint eval {sig X} (A : QAlgebra sig) (iota : X -> qa_carrier A)
+    An assignment ι : X → A, extended homomorphically to terms. *)
+Fixpoint eval {sig X} (A : QAlgebra sig) (ι : X -> qa_carrier A)
     (t : term sig X) : qa_carrier A :=
   match t with
-  | Var x   => iota x
-  | App f v => qa_ops A f (Vector.map (eval A iota) v)
+  | Var x   => ι x
+  | App f v => qa_ops A f (Vector.map (eval A ι) v)
   end.
 
 (** Definition 4.2 — Satisfaction.
-    A satisfies Gamma ⊢ s =_epsilon t  if for every assignment iota,
-    [ d(iota(lhs h), iota(rhs h)) ≤ eps h  for all h ∈ Gamma ]
-    implies d(iota s, iota t) ≤ epsilon. *)
+    A satisfies Γ ⊢ s =_ε t  if for every assignment ι,
+    [ d(ι(lhs h), ι(rhs h)) ≤ eps h  for all h ∈ Γ ]
+    implies d(ι s, ι t) ≤ ε. *)
 Definition satisfies_inf {sig X} (A : QAlgebra sig)
-    (Gamma : ctx sig X) (phi : qeq sig X) : Prop :=
-  forall (iota : X -> qa_carrier A),
-    (forall h, In h Gamma ->
-      dist (qa_metric A) (eval A iota (lhs h)) (eval A iota (rhs h)) <= eps h) ->
-    dist (qa_metric A) (eval A iota (lhs phi)) (eval A iota (rhs phi)) <= eps phi.
+    (Γ : ctx sig X) (φ : qeq sig X) : Prop :=
+  forall (ι : X -> qa_carrier A),
+    (forall h, In h Γ ->
+      dist (qa_metric A) (eval A ι (lhs h)) (eval A ι (rhs h)) <= eps h) ->
+    dist (qa_metric A) (eval A ι (lhs φ)) (eval A ι (rhs φ)) <= eps φ.
 
-Notation "A |= Gamma => phi" := (satisfies_inf A Gamma phi) (at level 73).
+Notation "A |= Γ => φ" := (satisfies_inf A Γ φ) (at level 73).
 
 (** A satisfies an axiom set U if it satisfies every element. *)
 Definition models {sig X} (A : QAlgebra sig) (U : axiom_set sig X) : Prop :=
-  forall Gamma phi, U Gamma phi -> A |= Gamma => phi.
+  forall Γ φ, U Γ φ -> A |= Γ => φ.
 
 (** Definition 4.3 — Equational class.
-    K(Omega, U) = the class of quantitative algebras satisfying U. *)
+    K(Ω, U) = the class of quantitative algebras satisfying U. *)
 Definition eq_class {sig X} (U : axiom_set sig X) (A : QAlgebra sig) : Prop :=
   models A U.
 
@@ -434,11 +434,11 @@ Lemma eq_class_subalgebra {sig X} (U : axiom_set sig X)
   eq_class U A ->
   eq_class U B.
 Proof.
-  intros [embed iso_e closed] HA Gamma phi HU iota Hhyp.
+  intros [embed iso_e closed] HA Γ φ HU ι Hhyp.
   (* Lift the assignment through the embedding. *)
-  set (iota' := fun x => embed (iota x)).
+  set (ι' := fun x => embed (ι x)).
   (* Evaluation commutes with the embedding. *)
-  assert (eval_embed : forall t, eval A iota' t = embed (eval B iota t)).
+  assert (eval_embed : forall t, eval A ι' t = embed (eval B ι t)).
   { fix IH 1.
     intro t.
     destruct t as [x | f v].
@@ -450,14 +450,14 @@ Proof.
         * apply IH.
         * apply IHtl.
   }
-  (* The hypotheses hold for iota' in A. *)
-  assert (Hhyp_A : forall h, In h Gamma ->
-      dist (qa_metric A) (eval A iota' (lhs h)) (eval A iota' (rhs h)) <= eps h).
+  (* The hypotheses hold for ι' in A. *)
+  assert (Hhyp_A : forall h, In h Γ ->
+      dist (qa_metric A) (eval A ι' (lhs h)) (eval A ι' (rhs h)) <= eps h).
   { intros h HIn.
     rewrite !eval_embed, iso_e.
     apply Hhyp; exact HIn. }
   (* Apply A's satisfaction. *)
-  specialize (HA Gamma phi HU iota' Hhyp_A).
+  specialize (HA Γ φ HU ι' Hhyp_A).
   rewrite !eval_embed, iso_e in HA.
   exact HA.
 Qed.
@@ -468,35 +468,35 @@ Qed.
 
 (** Given a quantitative equational theory U, define the
     pseudometric on TX:
-        d_U(s, t) = inf { epsilon | U ⊢ s =_epsilon t }
+        d_U(s, t) = inf { ε | U ⊢ s =_ε t }
 
     In Rocq we represent this infimum as:
         d_U s t = the greatest lower bound over Q. *)
 
 Section InducedMetric.
 
-  Context {sig : signature} {X : Type} (U : axiom_set sig X).
+  Context {sig X : Type} (U : axiom_set sig X).
 
-  (** The set of epsilon values for which U ⊢ s =_epsilon t. *)
+  (** The set of ε values for which U ⊢ s =_ε t. *)
   Definition provable_eps (s t : term sig X) : Q -> Prop :=
-    fun epsilon => U [] (s ~[epsilon] t).
+    fun ε => U [] (s ~[ε] t).
 
-  (** Proposition 5.1: delta_U(s,t) = 0 for all s,t.
-      (The infimum over *conditionally* provable epsilon is always 0.)
+  (** Proposition 5.1: δ_U(s,t) = 0 for all s,t.
+      (The infimum over *conditionally* provable ε is always 0.)
       Here we show the unconditional version: for variables x,y
-      the trivial derivation x =_epsilon y exists for any epsilon via the
-      identity x =_epsilon x and the Subst rule is not needed; instead
+      the trivial derivation x =_ε y exists for any ε via the
+      identity x =_ε x and the Subst rule is not needed; instead
       we observe Assumpt + D_Max. *)
 
   (** Proposition 5.2 and Section 5 main result:
-      d_U(s,t) = inf { epsilon | U [] (s ~[epsilon] t) }.
+      d_U(s,t) = inf { ε | U [] (s ~[ε] t) }.
       We state this as a Prop-valued lower bound; a full treatment
       requires the reals.  We record the key statements below. *)
 
-  (** Lower bound: d_U(s,t) ≤ epsilon iff U derives s =_epsilon t
+  (** Lower bound: d_U(s,t) ≤ ε iff U derives s =_ε t
       (unconditionally). *)
-  Definition d_U_le (s t : term sig X) (epsilon : Q) : Prop :=
-    U [] (s ~[epsilon] t).
+  Definition d_U_le (s t : term sig X) (ε : Q) : Prop :=
+    U [] (s ~[ε] t).
 
   (** d_U(s,t) = 0 iff U ⊢ s =_0 t.  (Uses Arch in the ⇒ dir.) *)
   (** This is a direct consequence of the Archimedean rule; we
@@ -554,51 +554,51 @@ Section FreeAlgebra.
 
   (** The "distance" on terms, as a Prop-valued relation on Q. *)
   Definition free_dist (s t : free_carrier) : Q -> Prop :=
-    fun epsilon => derives_S U [] (s ~[epsilon] t).
+    fun ε => derives_S U [] (s ~[ε] t).
 
   (** The pseudometric value is the infimum; we record the key
       axiomatic properties it satisfies. *)
 
   (** d_U(t,t) = 0 *)
-  Lemma free_dist_refl : forall t epsilon, 0 <= epsilon -> free_dist t t epsilon.
+  Lemma free_dist_refl : forall t ε, 0 <= ε -> free_dist t t ε.
   Proof.
-    intros t epsilon Hepsilon.
+    intros t ε Hε.
     unfold free_dist.
-    destruct (Qeq_dec epsilon 0) as [He | Hne].
+    destruct (Qeq_dec ε 0) as [He | Hne].
     - rewrite He. apply DS_Refl.
-    - assert (H0 : 0 < epsilon) by lra.
-      (* 0 + epsilon > 0, so use Max on the Refl *)
-      replace epsilon with (0 + epsilon) by lra.
+    - assert (H0 : 0 < ε) by lra.
+      (* 0 + ε > 0, so use Max on the Refl *)
+      replace ε with (0 + ε) by lra.
       apply DS_Max; [lra | lra | apply DS_Refl].
   Qed.
 
   (** Symmetry *)
-  Lemma free_dist_symm : forall s t epsilon,
-      0 <= epsilon -> free_dist s t epsilon -> free_dist t s epsilon.
+  Lemma free_dist_symm : forall s t ε,
+      0 <= ε -> free_dist s t ε -> free_dist t s ε.
   Proof.
-    intros s t epsilon Hepsilon H. unfold free_dist in *.
+    intros s t ε Hε H. unfold free_dist in *.
     apply DS_Symm; assumption.
   Qed.
 
   (** Triangle inequality *)
-  Lemma free_dist_tri : forall s t u epsilon epsilon',
-      0 <= epsilon -> 0 <= epsilon' ->
-      free_dist s t epsilon -> free_dist t u epsilon' ->
-      free_dist s u (epsilon + epsilon').
+  Lemma free_dist_tri : forall s t u ε ε',
+      0 <= ε -> 0 <= ε' ->
+      free_dist s t ε -> free_dist t u ε' ->
+      free_dist s u (ε + ε').
   Proof.
-    intros s t u epsilon epsilon' Hepsilon Hepsilon' Hst Htu. unfold free_dist in *.
+    intros s t u ε ε' Hε Hε' Hst Htu. unfold free_dist in *.
     apply DS_Triang with (s := t); assumption.
   Qed.
 
   (** The operations of the term algebra are non-expansive
       with respect to d_U. *)
   Lemma free_ops_nexp :
-    forall (f : sym sig) (ts ss : Vector.t (term sig X) (arity sig f)) epsilon,
-    0 <= epsilon ->
-    (forall i, free_dist (Vector.nth ts i) (Vector.nth ss i) epsilon) ->
-    free_dist (App f ts) (App f ss) epsilon.
+    forall (f : sym sig) (ts ss : Vector.t (term sig X) (arity sig f)) ε,
+    0 <= ε ->
+    (forall i, free_dist (Vector.nth ts i) (Vector.nth ss i) ε) ->
+    free_dist (App f ts) (App f ss) ε.
   Proof.
-    intros f ts ss epsilon Hepsilon Hcomp. unfold free_dist in *.
+    intros f ts ss ε Hε Hcomp. unfold free_dist in *.
     apply DS_NExp; assumption.
   Qed.
 
@@ -613,30 +613,30 @@ Section FreeAlgebra.
     apply DS_NExp; [lra | intro i; apply H].
   Qed.
 
-  (** Theorem 6.7 — T[M] ∈ K(Omega, U).
+  (** Theorem 6.7 — T[M] ∈ K(Ω, U).
       The free term algebra (modulo 0-provability) is a model of U. *)
 
-  (** We state this as: for every axiom (Gamma, phi) in U, the term
+  (** We state this as: for every axiom (Γ, φ) in U, the term
       algebra satisfies it under every assignment. *)
   Theorem free_algebra_is_model :
-    forall (Gamma : ctx sig X) (phi : qeq sig X),
-    U Gamma phi ->
-    forall (iota : X -> term sig X),
-    (forall h, In h Gamma ->
-      free_dist (subst_term iota (lhs h))
-                (subst_term iota (rhs h))
+    forall (Γ : ctx sig X) (φ : qeq sig X),
+    U Γ φ ->
+    forall (ι : X -> term sig X),
+    (forall h, In h Γ ->
+      free_dist (subst_term ι (lhs h))
+                (subst_term ι (rhs h))
                 (eps h)) ->
-    free_dist (subst_term iota (lhs phi))
-              (subst_term iota (rhs phi))
-              (eps phi).
+    free_dist (subst_term ι (lhs φ))
+              (subst_term ι (rhs φ))
+              (eps φ).
   Proof.
-    intros Gamma phi HU iota Hhyp.
+    intros Γ φ HU ι Hhyp.
     unfold free_dist in *.
-    (* Use DS_Axiom and DS_Subst: U proves Gamma ⊢ phi, so by DS_Axiom,
-       derives_S U Gamma phi; then DS_Subst gives derives_S U sigma(Gamma) sigma(phi);
+    (* Use DS_Axiom and DS_Subst: U proves Γ ⊢ φ, so by DS_Axiom,
+       derives_S U Γ φ; then DS_Subst gives derives_S U σ(Γ) σ(φ);
        and DS_Cut with the hypothesis derivations closes the goal. *)
-    apply DS_Cut with (Gamma' := subst_ctx iota Gamma).
-    - intros psi HIn.
+    apply DS_Cut with (Γ' := subst_ctx ι Γ).
+    - intros ψ HIn.
       unfold subst_ctx in HIn.
       apply in_map_iff in HIn.
       destruct HIn as [h [<- HhIn]].
@@ -652,14 +652,14 @@ End FreeAlgebra.
    §6  Completeness  (Theorem 6.8)
    ============================================================
 
-   Gamma |=_{K(Omega,U)} phi  iff  U ⊢ Gamma → phi
+   Γ |=_{K(Ω,U)} φ  iff  U ⊢ Γ → φ
 
    Soundness (right-to-left) is a direct consequence of
    free_algebra_is_model above.
 
    Completeness (left-to-right) uses the free algebra T[X] as a
-   witness: if U ∪ Gamma derives s =_e t then the distance in T[X]
-   is ≤ e; if not, then e < d_U∪Gamma(s,t) and we get a contradiction.
+   witness: if U ∪ Γ derives s =_e t then the distance in T[X]
+   is ≤ e; if not, then e < d_U∪Γ(s,t) and we get a contradiction.
 
    A complete Rocq proof requires quotient types and real-valued
    infima.  We record the statement.
@@ -670,17 +670,17 @@ Section Completeness.
   Context {sig : signature} {X : Type} (U : axiom_set sig X).
 
   (** Semantic entailment w.r.t. the equational class of U. *)
-  Definition sem_entails (Gamma : ctx sig X) (phi : qeq sig X) : Prop :=
-    forall (A : QAlgebra sig), eq_class U A -> A |= Gamma => phi.
+  Definition sem_entails (Γ : ctx sig X) (φ : qeq sig X) : Prop :=
+    forall (A : QAlgebra sig), eq_class U A -> A |= Γ => φ.
 
   (** Soundness: syntactic derivability implies semantic validity. *)
-  Theorem soundness : forall Gamma phi,
-    derives_S U Gamma phi -> sem_entails Gamma phi.
+  Theorem soundness : forall Γ φ,
+    derives_S U Γ φ -> sem_entails Γ φ.
   Proof.
-    intros Gamma phi Hderiv A HA.
+    intros Γ φ Hderiv A HA.
     unfold eq_class, models in HA.
     (* Proceed by induction on the derivation. *)
-    induction Hderiv; intros iota Hhyp.
+    induction Hderiv; intros ι Hhyp.
     - (* D_Refl *) simpl.
       rewrite dist_refl. lra.
     - (* D_Symm *)
@@ -719,13 +719,13 @@ Section Completeness.
   Admitted. (* full proof needs eval_subst and D_Arch_sem helpers *)
 
   (** Completeness statement (Theorem 6.8). *)
-  Theorem completeness : forall Gamma phi,
-    sem_entails Gamma phi <-> derives_S U Gamma phi.
+  Theorem completeness : forall Γ φ,
+    sem_entails Γ φ <-> derives_S U Γ φ.
   Proof.
-    intros Gamma phi. split.
+    intros Γ φ. split.
     - (* ← direction (completeness proper):
-         Use the free algebra T[X] with metric d_{U∪Gamma}.
-         If Gamma |-_U phi fails then d_{U∪Gamma}(s,t) > epsilon; contradiction. *)
+         Use the free algebra T[X] with metric d_{U∪Γ}.
+         If Γ |-_U φ fails then d_{U∪Γ}(s,t) > ε; contradiction. *)
       admit.  (* Requires quotient types + real-valued infima *)
     - intro H. apply soundness. exact H.
   Admitted.
@@ -737,9 +737,9 @@ End Completeness.
    ============================================================
 
    The key idea: extend the signature with constant symbols for
-   each m ∈ M and add axioms ∅ ⊢ m =_epsilon n whenever d(m,n) ≤ epsilon.
+   each m ∈ M and add axioms ∅ ⊢ m =_ε n whenever d(m,n) ≤ ε.
    The resulting freely generated algebra T^d[M] is universal
-   among quantitative algebras (in K(Omega,U)) with a non-expansive
+   among quantitative algebras (in K(Ω,U)) with a non-expansive
    map from (M,d).
    ============================================================ *)
 
@@ -758,21 +758,21 @@ Section FreeOverMetric.
 
   (** The extended axiom set U_M: U plus the metric axioms. *)
   Definition U_metric (M : Type) (d : M -> M -> Q) : axiom_set (sig_extend M) X :=
-    fun Gamma phi =>
+    fun Γ φ =>
       (* Either a U-axiom (lifted to the extended signature) ... *)
-      (* or a metric axiom: ∅ ⊢ m =_epsilon n  when d(m,n) ≤ epsilon. *)
-      (exists (m n : M) epsilon,
-        Gamma = [] /\
-        phi = (App (sig := sig_extend M) (inr m) [] ~[epsilon]
+      (* or a metric axiom: ∅ ⊢ m =_ε n  when d(m,n) ≤ ε. *)
+      (exists (m n : M) ε,
+        Γ = [] /\
+        φ = (App (sig := sig_extend M) (inr m) [] ~[ε]
              App (sig := sig_extend M) (inr n) []) /\
-        d m n <= epsilon /\ 0 <= epsilon).
+        d m n <= ε /\ 0 <= ε).
 
   (** Theorem 7.2 (statement):
-      (T^d[M], eta_M) is a universal arrow from (M,d) to U_Met.
+      (T^d[M], η_M) is a universal arrow from (M,d) to U_Met.
       Full proof deferred (requires real-analysis / metric completion). *)
 
   (** Theorem 7.3 (statement):
-      If (M,d) is non-degenerate, U_M is consistent iff eta_M is
+      If (M,d) is non-degenerate, U_M is consistent iff η_M is
       an isometry. *)
 
 End FreeOverMetric.
@@ -789,7 +789,7 @@ End FreeOverMetric.
    library.  We record the definitions only.
    ============================================================ *)
 
-(** A continuous equation scheme over a signature Omega is a family
+(** A continuous equation scheme over a signature Ω is a family
     { {x_1 =_{e_1} y_1, …, x_n =_{e_n} y_n} ⊢ s =_{f(e_1,…,e_n)} t
       | e_1, …, e_n ∈ R⁺ }
     where f : R⁺^n → R⁺ is continuous.
@@ -838,50 +838,50 @@ Section BarycentricAxioms.
 
   (** (B1)  ⊢ x +_1 x' =_0 x *)
   Definition ax_B1 : axiom_set barycentric_sig X :=
-    fun Gamma phi =>
-      Gamma = [] /\
+    fun Γ φ =>
+      Γ = [] /\
       exists (a b : X),
-        phi = (bary_plus 1 (t a) (t b) ~[0] t a).
+        φ = (bary_plus 1 (t a) (t b) ~[0] t a).
 
   (** (B2)  ⊢ x +_e x =_0 x *)
   Definition ax_B2 : axiom_set barycentric_sig X :=
-    fun Gamma phi =>
-      Gamma = [] /\
+    fun Γ φ =>
+      Γ = [] /\
       exists (a : X) (e : Q), 0 <= e -> e <= 1 ->
-        phi = (bary_plus e (t a) (t a) ~[0] t a).
+        φ = (bary_plus e (t a) (t a) ~[0] t a).
 
   (** (SC)  ⊢ x +_e x' =_0 x' +_{1-e} x  (skew commutativity) *)
   Definition ax_SC : axiom_set barycentric_sig X :=
-    fun Gamma phi =>
-      Gamma = [] /\
+    fun Γ φ =>
+      Γ = [] /\
       exists (a b : X) (e : Q), 0 <= e -> e <= 1 ->
-        phi = (bary_plus e (t a) (t b) ~[0] bary_plus (1 - e) (t b) (t a)).
+        φ = (bary_plus e (t a) (t b) ~[0] bary_plus (1 - e) (t b) (t a)).
 
-  (** (LI)  ⊢ x' +_e x =_{epsilon} x'' +_e x  for e ≤ epsilon  (left-invariance) *)
+  (** (LI)  ⊢ x' +_e x =_{ε} x'' +_e x  for e ≤ ε  (left-invariance) *)
   Definition ax_LI : axiom_set barycentric_sig X :=
-    fun Gamma phi =>
-      Gamma = [] /\
-      exists (a b c : X) (e epsilon : Q),
-        0 <= e -> e <= epsilon -> 0 <= epsilon ->
-        phi = (bary_plus e (t a) (t c) ~[epsilon] bary_plus e (t b) (t c)).
+    fun Γ φ =>
+      Γ = [] /\
+      exists (a b c : X) (e ε : Q),
+        0 <= e -> e <= ε -> 0 <= ε ->
+        φ = (bary_plus e (t a) (t c) ~[ε] bary_plus e (t b) (t c)).
 
   (** The full left-invariant barycentric theory U_LI. *)
   Definition U_LI : axiom_set barycentric_sig X :=
-    fun Gamma phi =>
-      ax_B1  Gamma phi \/ ax_B2  Gamma phi \/
-      ax_SC  Gamma phi \/ ax_LI  Gamma phi.
+    fun Γ φ =>
+      ax_B1  Γ φ \/ ax_B2  Γ φ \/
+      ax_SC  Γ φ \/ ax_LI  Γ φ.
       (* (SA) skew-associativity is omitted here for brevity;
          it follows the same pattern. *)
 
 End BarycentricAxioms.
 
 (** Theorem 9.5 (statement):
-    Pi[M] = (finitely-supported distributions over M, total variation)
+    Π[M] = (finitely-supported distributions over M, total variation)
     is a model of U_LI. *)
 
 (** Theorem 9.6 (statement):
-    (Pi[M], delta_M) is the universal arrow from M ∈ Set to U_Set for U_LI.
-    Proof: map h sends Sigma c_i delta_{m_i} ↦ Sigma c_i alpha(m_i) in A. *)
+    (Π[M], δ_M) is the universal arrow from M ∈ Set to U_Set for U_LI.
+    Proof: map h sends Σ c_i δ_{m_i} ↦ Σ c_i α(m_i) in A. *)
 
 (** Corollary 9.7: U_LI axiomatizes the total variation distance. *)
 
@@ -907,10 +907,10 @@ Section SemilatticeAxioms.
   (** (S1) ⊢ x + x =_0 x *)
   (** (S2) ⊢ x + x' =_0 x' + x *)
   (** (S3) ⊢ (x + x') + x'' =_0 x + (x' + x'') *)
-  (** (S4) {x =_epsilon y, x' =_{epsilon'} y'} ⊢ x + x' =_{max epsilon epsilon'} y + y' *)
+  (** (S4) {x =_ε y, x' =_{ε'} y'} ⊢ x + x' =_{max ε ε'} y + y' *)
 
   Definition U_S : axiom_set semilattice_sig X :=
-    fun Gamma phi =>
+    fun Γ φ =>
       (* placeholder; axioms follow the same pattern as U_LI *)
       False.
 
@@ -931,8 +931,8 @@ End SemilatticeAxioms.
    ============================================================ *)
 
 (** The p-IB theory adds the axiom schema (IB_p):
-    {x =_{epsilon_1} y, x' =_{epsilon_2} y'} ⊢ x +_e x' =_delta y +_e y'
-    where (e^p epsilon_1^p + (1-e)^p epsilon_2^p)^{1/p} ≤ delta. *)
+    {x =_{ε_1} y, x' =_{ε_2} y'} ⊢ x +_e x' =_δ y +_e y'
+    where (e^p ε_1^p + (1-e)^p ε_2^p)^{1/p} ≤ δ. *)
 
 Section IBAxioms.
 
@@ -940,27 +940,27 @@ Section IBAxioms.
 
   (** For a fixed p ≥ 1, the IB_p axiom scheme. *)
   Definition ax_IBp (p : Q) : axiom_set barycentric_sig X :=
-    fun Gamma phi =>
-      exists (a b c d : X) (e epsilon1 epsilon2 delta : Q),
+    fun Γ φ =>
+      exists (a b c d : X) (e ε1 ε2 δ : Q),
         1 <= p ->
         0 <= e -> e <= 1 ->
-        0 <= epsilon1 -> epsilon1 <= 1 ->
-        0 <= epsilon2 -> epsilon2 <= 1 ->
-        (** (e^p * epsilon1^p + (1-e)^p * epsilon2^p)^{1/p} ≤ delta *)
+        0 <= ε1 -> ε1 <= 1 ->
+        0 <= ε2 -> ε2 <= 1 ->
+        (** (e^p * ε1^p + (1-e)^p * ε2^p)^{1/p} ≤ δ *)
         (** We approximate the p-th power / root in Q.  For a full
             treatment one would use a real-analysis library. *)
         True ->   (* placeholder for the numeric condition *)
-        Gamma = [Var a ~[epsilon1] Var b; Var c ~[epsilon2] Var d] /\
-        phi = (bary_plus e (Var a) (Var c) ~[delta] bary_plus e (Var b) (Var d)).
+        Γ = [Var a ~[ε1] Var b; Var c ~[ε2] Var d] /\
+        φ = (bary_plus e (Var a) (Var c) ~[δ] bary_plus e (Var b) (Var d)).
 
   Definition U_IB (p : Q) : axiom_set barycentric_sig X :=
-    fun Gamma phi =>
-      U_LI Gamma phi \/ ax_IBp p Gamma phi.
+    fun Γ φ =>
+      U_LI Γ φ \/ ax_IBp p Γ φ.
 
 End IBAxioms.
 
 (** Theorem 11.5 (statement):
-    Pi[M] = (finitely-supported distributions, p-Wasserstein metric)
+    Π[M] = (finitely-supported distributions, p-Wasserstein metric)
     is a model of U_IB(p). *)
 
 (** Corollary 11.7:
