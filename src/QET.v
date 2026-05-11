@@ -98,16 +98,20 @@ Definition subst_comp {sig X} (σ τ : X -> term sig X) : X -> term sig X :=
 Lemma subst_term_comp {sig X} (σ τ : X -> term sig X) (t : term sig X) :
   subst_term σ (subst_term τ t) = subst_term (subst_comp σ τ) t.
 Proof.
-  induction t.
+  revert t.
+  (* I use fix as the induction tactic gives no inductive hypothesis *)
+  fix IH 1.
+  intro t.
+  destruct t as [x | f v].
   - reflexivity.
   - simpl. f_equal.
     apply Vector.eq_nth_iff; intros i j Hij.
-    admit.
-    (* 
-    rewrite !Vector.nth_map.
+    rewrite (Vector.nth_map (subst_term σ) (Vector.map (subst_term τ) v) i i eq_refl).
+    rewrite (Vector.nth_map (subst_term τ) v i i eq_refl).
+    rewrite (Vector.nth_map (subst_term (subst_comp σ τ)) v j j eq_refl).
+    subst j.
     apply IH.
-    *)
-Admitted.
+Qed.
 
 (* ============================================================
    §2  Quantitative equations and deducibility  (Def 2.1)
@@ -179,6 +183,13 @@ Inductive derives (sig : signature) (X : Type)
       0 < ε' ->
       Γ |- (t ~[ε] s) ->
       Γ |- (t ~[ε + ε'] s)
+
+  (** Epsilon equality: Coq's rationals use setoid equality [==],
+      so the proof system must be closed under equal rational bounds. *)
+  | D_EpsEq : forall Γ t s ε δ,
+      ε == δ ->
+      Γ |- (t ~[ε] s) ->
+      Γ |- (t ~[δ] s)
 
   (** (Arch)  for ε ≥ 0,  {t =_{ε'} s | ε' > ε} ⊢ t =_ε s
       We encode the infinitary premise as a universally quantified
@@ -284,6 +295,10 @@ Inductive derives_S {sig X} (S : axiom_set sig X)
       Qnn ε -> 0 < ε' ->
       derives_S S Γ (t ~[ε] s) ->
       derives_S S Γ (t ~[ε + ε'] s)
+  | DS_EpsEq  : forall Γ t s ε δ,
+      ε == δ ->
+      derives_S S Γ (t ~[ε] s) ->
+      derives_S S Γ (t ~[δ] s)
   | DS_Arch   : forall Γ t s ε,
       Qnn ε ->
       (forall ε', ε < ε' -> derives_S S Γ (t ~[ε'] s)) ->
@@ -405,6 +420,24 @@ Fixpoint eval {sig X} (A : QAlgebra sig) (ι : X -> qa_carrier A)
   | App f v => qa_ops A f (Vector.map (eval A ι) v)
   end.
 
+Lemma eval_subst {sig X} (A : QAlgebra sig) (ι : X -> qa_carrier A)
+    (σ : X -> term sig X) (t : term sig X) :
+  eval A ι (subst_term σ t) = eval A (fun x => eval A ι (σ x)) t.
+Proof.
+  revert t.
+  fix IH 1.
+  intro t.
+  destruct t as [x | f v].
+  - reflexivity.
+  - simpl. f_equal.
+    apply Vector.eq_nth_iff; intros i j Hij.
+    rewrite (Vector.nth_map (eval A ι) (Vector.map (subst_term σ) v) i i eq_refl).
+    rewrite (Vector.nth_map (subst_term σ) v i i eq_refl).
+    rewrite (Vector.nth_map (eval A (fun x : X => eval A ι (σ x))) v j j eq_refl).
+    subst j.
+    apply IH.
+Qed.
+
 (** Definition 4.2 — Satisfaction.
     A satisfies Γ ⊢ s =_ε t  if for every assignment ι,
     [ d(ι(lhs h), ι(rhs h)) ≤ eps h  for all h ∈ Γ ]
@@ -475,11 +508,11 @@ Qed.
 
 Section InducedMetric.
 
-  Context {sig X : Type} (U : axiom_set sig X).
+  Context {sig : signature} {X : Type} (U : axiom_set sig X).
 
   (** The set of ε values for which U ⊢ s =_ε t. *)
   Definition provable_eps (s t : term sig X) : Q -> Prop :=
-    fun ε => U [] (s ~[ε] t).
+    fun ε => derives_S U [] (s ~[ε] t).
 
   (** Proposition 5.1: δ_U(s,t) = 0 for all s,t.
       (The infimum over *conditionally* provable ε is always 0.)
@@ -496,7 +529,7 @@ Section InducedMetric.
   (** Lower bound: d_U(s,t) ≤ ε iff U derives s =_ε t
       (unconditionally). *)
   Definition d_U_le (s t : term sig X) (ε : Q) : Prop :=
-    U [] (s ~[ε] t).
+    derives_S U [] (s ~[ε] t).
 
   (** d_U(s,t) = 0 iff U ⊢ s =_0 t.  (Uses Arch in the ⇒ dir.) *)
   (** This is a direct consequence of the Archimedean rule; we
@@ -505,7 +538,7 @@ Section InducedMetric.
 
   (** The equivalence relation induced by d_U = 0. *)
   Definition term_equiv (s t : term sig X) : Prop :=
-    U [] (s ~[0] t).
+    derives_S U [] (s ~[0] t).
 
   (** term_equiv is a congruence (used in §6). *)
   Lemma term_equiv_refl : forall t, term_equiv t t.
@@ -517,16 +550,15 @@ Section InducedMetric.
   Lemma term_equiv_symm : forall s t, term_equiv s t -> term_equiv t s.
   Proof.
     intros s t H. unfold term_equiv in *.
-    apply DS_Symm; [lra | exact H].
+    apply DS_Symm; [lra | apply H].
   Qed.
 
   Lemma term_equiv_trans : forall s t u,
       term_equiv s t -> term_equiv t u -> term_equiv s u.
   Proof.
     intros s t u Hst Htu. unfold term_equiv in *.
-    (* D_Triang gives s =_{0+0} u = s =_0 u *)
-    replace 0 with (0 + 0) by lra.
-    apply DS_Triang; [lra | lra | exact Hst | exact Htu].
+    eapply DS_Triang with (s := t) (ε := 0) (ε' := 0);
+      [lra | lra | apply Hst | apply Htu].
   Qed.
 
 End InducedMetric.
@@ -564,12 +596,13 @@ Section FreeAlgebra.
   Proof.
     intros t ε Hε.
     unfold free_dist.
-    destruct (Qeq_dec ε 0) as [He | Hne].
-    - rewrite He. apply DS_Refl.
-    - assert (H0 : 0 < ε) by lra.
-      (* 0 + ε > 0, so use Max on the Refl *)
-      replace ε with (0 + ε) by lra.
-      apply DS_Max; [lra | lra | apply DS_Refl].
+    destruct (Qle_lt_or_eq 0 ε Hε) as [Hpos | Hz].
+    - eapply DS_EpsEq with (ε := 0 + ε).
+      + lra.
+      + apply DS_Max; [lra | exact Hpos | apply DS_Refl].
+    - eapply DS_EpsEq with (ε := 0).
+      + exact Hz.
+      + apply DS_Refl.
   Qed.
 
   (** Symmetry *)
@@ -609,7 +642,6 @@ Section FreeAlgebra.
     term_equiv U (App f xs) (App f ys).
   Proof.
     intros f xs ys H. unfold term_equiv in *.
-    replace 0 with (0 : Q) by lra.
     apply DS_NExp; [lra | intro i; apply H].
   Qed.
 
@@ -631,6 +663,7 @@ Section FreeAlgebra.
               (eps φ).
   Proof.
     intros Γ φ HU ι Hhyp.
+    destruct φ as [φ_lhs φ_rhs φ_eps]; simpl in *.
     unfold free_dist in *.
     (* Use DS_Axiom and DS_Subst: U proves Γ ⊢ φ, so by DS_Axiom,
        derives_S U Γ φ; then DS_Subst gives derives_S U σ(Γ) σ(φ);
@@ -680,34 +713,48 @@ Section Completeness.
     intros Γ φ Hderiv A HA.
     unfold eq_class, models in HA.
     (* Proceed by induction on the derivation. *)
-    induction Hderiv; intros ι Hhyp.
+    induction Hderiv; intros ι Hhyp; simpl in *.
     - (* D_Refl *) simpl.
       rewrite dist_refl. lra.
     - (* D_Symm *)
       rewrite dist_symm. apply IHHderiv; exact Hhyp.
     - (* D_Triang *)
-      eapply Qle_trans; [| apply dist_tri].
+      eapply Qle_trans; [apply dist_tri |].
       apply Qplus_le_compat.
       + apply IHHderiv1; exact Hhyp.
       + apply IHHderiv2; exact Hhyp.
     - (* D_Max *)
       eapply Qle_trans; [apply IHHderiv; exact Hhyp |].
-      lra.
+      change (eps (t ~[ε] s)) with ε. lra.
+    - (* D_EpsEq *)
+      eapply Qle_trans; [apply IHHderiv; exact Hhyp |].
+      change (eps (t ~[ε] s)) with ε. lra.
     - (* D_Arch *)
-      apply D_Arch_sem; assumption.
+      set (d := dist (qa_metric A) (eval A ι t) (eval A ι s)).
+      destruct (Qlt_le_dec ε d) as [Hlt | Hle].
+      + assert (Hmid : ε < (ε + d) * (1#2)) by lra.
+        specialize (H1 ((ε + d) * (1#2)) Hmid ι Hhyp).
+        simpl in H1. fold d in H1. lra.
+      + exact Hle.
     - (* D_NExp *)
-      apply qa_nexp. exact H.
-      intro i. apply H1; exact Hhyp.
+      apply qa_nexp; [exact H |].
+      intro i.
+      specialize (H1 i ι Hhyp).
+      simpl in H1.
+      rewrite <- (Vector.nth_map (eval A ι) ts i i eq_refl) in H1.
+      rewrite <- (Vector.nth_map (eval A ι) ss i i eq_refl) in H1.
+      exact H1.
     - (* D_Subst *)
-      (* The substituted context matches the hypotheses. *)
+      rewrite !eval_subst.
       apply IHHderiv.
       intros h HIn.
-      unfold subst_ctx in HIn.
-      apply in_map_iff in HIn.
-      destruct HIn as [h' [<- HIn']].
-      unfold subst_qeq. simpl.
-      (* eval commutes with subst *)
-      admit. (* requires eval_subst lemma *)
+      pose proof (Hhyp (subst_qeq σ h)) as Hs.
+      assert (Hin_subst : In (subst_qeq σ h) (subst_ctx σ Γ)).
+      { unfold subst_ctx. apply in_map. exact HIn. }
+      specialize (Hs Hin_subst).
+      unfold subst_qeq in Hs; simpl in Hs.
+      rewrite !eval_subst in Hs.
+      exact Hs.
     - (* D_Cut *)
       apply IHHderiv.
       intros h HIn.
@@ -715,8 +762,8 @@ Section Completeness.
     - (* D_Assumpt *)
       apply Hhyp. exact H.
     - (* DS_Axiom *)
-      apply HA. exact H.
-  Admitted. (* full proof needs eval_subst and D_Arch_sem helpers *)
+      exact (HA Γ φ H ι Hhyp).
+  Qed.
 
   (** Completeness statement (Theorem 6.8). *)
   Theorem completeness : forall Γ φ,
@@ -752,7 +799,7 @@ Section FreeOverMetric.
     sym   := sig.(sym) + M;   (* Either an original symbol or a constant *)
     arity := fun sf => match sf with
                        | inl f => sig.(arity) f
-                       | inr _ => 0           (* constants have arity 0 *)
+                       | inr _ => 0%nat       (* constants have arity 0 *)
                        end;
   |}.
 
@@ -763,8 +810,8 @@ Section FreeOverMetric.
       (* or a metric axiom: ∅ ⊢ m =_ε n  when d(m,n) ≤ ε. *)
       (exists (m n : M) ε,
         Γ = [] /\
-        φ = (App (sig := sig_extend M) (inr m) [] ~[ε]
-             App (sig := sig_extend M) (inr n) []) /\
+        φ = (App (sig := sig_extend M) (inr m) []%vector ~[ε]
+             App (sig := sig_extend M) (inr n) []%vector) /\
         d m n <= ε /\ 0 <= ε).
 
   (** Theorem 7.2 (statement):
@@ -815,7 +862,7 @@ Record ContinuousScheme {sig X} := {
 
 Definition barycentric_sig : signature := {|
   sym   := Q;      (* the parameter e *)
-  arity := fun _ => 2;
+  arity := fun _ => 2%nat;
 |}.
 
 (** The left-invariant barycentric axioms (Def 9.1).
@@ -832,7 +879,7 @@ Section BarycentricAxioms.
   (** Helper: +_e as a term constructor *)
   Definition bary_plus (e : Q) (s u : term barycentric_sig X)
       : term barycentric_sig X :=
-    App e [s; u].
+    App (sig := barycentric_sig) e [s; u]%vector.
 
   Notation "s [+_{ e }] u" := (bary_plus e s u) (at level 60).
 
@@ -892,7 +939,7 @@ End BarycentricAxioms.
 (** The semilattice signature: one binary + and one constant 0. *)
 Definition semilattice_sig : signature := {|
   sym   := bool;    (* false = binary +, true = constant 0 *)
-  arity := fun b => if b then 0 else 2;
+  arity := fun b => if b then 0%nat else 2%nat;
 |}.
 
 Section SemilatticeAxioms.
@@ -900,8 +947,9 @@ Section SemilatticeAxioms.
   Context {X : Type}.
   Let t := @Var semilattice_sig X.
   Let plus_ (s u : term semilattice_sig X) : term semilattice_sig X :=
-    App false [s; u].
-  Let zero_ : term semilattice_sig X := App true [].
+    App (sig := semilattice_sig) false [s; u]%vector.
+  Let zero_ : term semilattice_sig X :=
+    App (sig := semilattice_sig) true []%vector.
 
   (** (S0) ⊢ x + 0 =_0 x *)
   (** (S1) ⊢ x + x =_0 x *)
