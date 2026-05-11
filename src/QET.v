@@ -235,10 +235,10 @@ Lemma derives_weaken {sig X} (Γ Γ' : ctx sig X) φ :
   Γ  |- φ ->
   Γ' |- φ.
 Proof.
-  intros Hsub Hd.
+  intros Hsub Hjudge.
   apply D_Cut with (Γ' := Γ).
-  - intros ψ HIn. apply D_Assumpt. apply Hsub. exact HIn.
-  - exact Hd.
+  - intros ψ HIn. apply D_Assumpt. apply Hsub. apply HIn.
+  - apply Hjudge.
 Qed.
 
 (** The empty context can derive anything derivable from Γ via Cut. *)
@@ -246,10 +246,10 @@ Lemma derives_empty_cut {sig X} (Γ : ctx sig X) φ :
   [] |- φ ->
   Γ  |- φ.
 Proof.
-  intro H.
+  intros H.
   apply D_Cut with (Γ' := []).
   - intros ψ HIn. inversion HIn.
-  - exact H.
+  - apply H.
 Qed.
 
 (* ============================================================
