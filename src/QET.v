@@ -393,6 +393,41 @@ Record QAlgHom {sig} (A B : QAlgebra sig) := {
     qa_ops B f (Vector.map hom_fun v);
 }.
 
+(** Equality of homomorphisms is extensional equality of their
+    underlying maps.  This avoids relying on proof irrelevance for
+    the non-expansiveness and compatibility witnesses. *)
+Definition same_hom {sig} {A B : QAlgebra sig}
+    (h k : QAlgHom A B) : Prop :=
+  forall a, hom_fun h a = hom_fun k a.
+
+(** Identity homomorphism. *)
+Definition QAlgHom_id {sig} (A : QAlgebra sig) : QAlgHom A A.
+Proof.
+  refine {| hom_fun := fun a => a |}.
+  - intros a b. lra.
+  - intros f v. simpl.
+    f_equal.
+    apply Vector.eq_nth_iff; intros i j Hij.
+    rewrite (Vector.nth_map (fun a : qa_carrier A => a) v j j eq_refl).
+    subst j. reflexivity.
+Defined.
+
+(** Composition of homomorphisms. *)
+Definition QAlgHom_comp {sig} {A B C : QAlgebra sig}
+    (g : QAlgHom B C) (h : QAlgHom A B) : QAlgHom A C.
+Proof.
+  refine {| hom_fun := fun a => hom_fun g (hom_fun h a) |}.
+  - intros a b.
+    eapply Qle_trans; [apply hom_nexp | apply hom_nexp].
+  - intros f v. simpl.
+    rewrite hom_compat.
+    rewrite hom_compat.
+    f_equal.
+    induction v as [| a n v IHv].
+    + reflexivity.
+    + simpl. f_equal. exact IHv.
+Defined.
+
 (** Definition 3.3 — Subalgebra.
     B is a subalgebra of A if its carrier embeds isometrically and
     it is closed under all operations. *)
@@ -406,6 +441,81 @@ Record QSubAlgebra {sig} (A B : QAlgebra sig) := {
     sub_embed (qa_ops B f v) =
     qa_ops A f (Vector.map sub_embed v);
 }.
+
+(** A subcategory K of Ω-QA, represented by its objects and
+    permitted homomorphisms, together with identity and composition
+    closure. *)
+Record QAlgSubcategory (sig : signature) := {
+  K_obj : QAlgebra sig -> Prop;
+  K_hom : forall {A B : QAlgebra sig}, QAlgHom A B -> Prop;
+  K_hom_dom : forall {A B} (h : QAlgHom A B), K_hom h -> K_obj A;
+  K_hom_cod : forall {A B} (h : QAlgHom A B), K_hom h -> K_obj B;
+  K_id : forall A, K_obj A -> K_hom (QAlgHom_id A);
+  K_comp : forall {A B C} (g : QAlgHom B C) (h : QAlgHom A B),
+    K_hom g -> K_hom h -> K_hom (QAlgHom_comp g h);
+}.
+
+(** Definition 3.4 — Initiality.
+    A is initial in a subcategory K of Ω-QA if A is an object of K
+    and every object B of K receives a unique K-homomorphism from A. *)
+Definition initial_in {sig} (K : QAlgSubcategory sig) (A : QAlgebra sig) : Prop :=
+  K_obj K A /\
+  forall B, K_obj K B ->
+    exists h : QAlgHom A B,
+      K_hom K h /\
+      forall k : QAlgHom A B, K_hom K k -> same_hom k h.
+
+(** A small category interface, used only for the statement of
+    Definition 3.5.  The laws are included so that functors target
+    genuine categories, but no later proof depends on a particular
+    category library. *)
+Record Category := {
+  Obj : Type;
+  Hom : Obj -> Obj -> Type;
+  id  : forall X, Hom X X;
+  comp : forall {X Y Z}, Hom Y Z -> Hom X Y -> Hom X Z;
+  comp_assoc : forall {W X Y Z}
+      (h : Hom Y Z) (g : Hom X Y) (f : Hom W X),
+    comp h (comp g f) = comp (comp h g) f;
+  comp_id_l : forall {X Y} (f : Hom X Y), comp (id Y) f = f;
+  comp_id_r : forall {X Y} (f : Hom X Y), comp f (id X) = f;
+}.
+
+(** A functor from a subcategory K of Ω-QA to an arbitrary category C. *)
+Record FunctorFromQAlgSubcat {sig}
+    (K : QAlgSubcategory sig) (C : Category) := {
+  fobj : QAlgebra sig -> Obj C;
+  fmap : forall {A B : QAlgebra sig} (h : QAlgHom A B)
+      (Hh : K_hom K h),
+    Hom C (fobj A) (fobj B);
+}.
+
+(** Definition 3.5 — Universal morphism from C0 to G.
+    The equation [Gh ◦ α = β] is expressed using [comp] in the
+    target category. *)
+Definition universal_morphism {sig} {C : Category}
+    {K : QAlgSubcategory sig}
+    (G : FunctorFromQAlgSubcat K C)
+    (C0 : Obj C)
+    (A : QAlgebra sig) (HA : K_obj K A)
+    (α : Hom C C0 (fobj G A)) : Prop :=
+  forall (B : QAlgebra sig) (HB : K_obj K B)
+         (β : Hom C C0 (fobj G B)),
+    exists h : QAlgHom A B,
+      forall (Hh : K_hom K h),
+        comp C (fmap G h Hh) α = β /\
+        forall (k : QAlgHom A B) (Hk : K_hom K k),
+          comp C (fmap G k Hk) α = β -> same_hom k h.
+
+(** A has the universal mapping property for C0 to G when some
+    arrow α : C0 -> G A is universal. *)
+Definition has_universal_mapping_property {sig} {C : Category}
+    {K : QAlgSubcategory sig}
+    (G : FunctorFromQAlgSubcat K C)
+    (C0 : Obj C)
+    (A : QAlgebra sig) (HA : K_obj K A) : Prop :=
+  exists α : Hom C C0 (fobj G A),
+    universal_morphism G C0 A HA α.
 
 (* ============================================================
    §4  Algebraic Semantics  (Def 4.1 – 4.3)
