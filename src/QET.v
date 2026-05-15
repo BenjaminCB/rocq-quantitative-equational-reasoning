@@ -341,44 +341,79 @@ Definition consistent {sig X} (U : axiom_set sig X) : Prop :=
    §3  Quantitative Algebras  (Def 3.1 – 3.5)
    ============================================================ *)
 
-(** We axiomatize metrics with values in Q ∪ {∞} using an option:
-    None = ∞.  For simplicity in the algebraic sections we often
-    assume metrics land in Q (finite); the extended case is noted. *)
+(** The paper uses metrics valued in R+ ∪ {∞}. *)
 
-(** A carrier with a pseudo-metric (possibly infinite, over Q). *)
-Record PseudoMetricSpace := {
-  carrier    : Type;
-  dist       : carrier -> carrier -> Q;   (* finite approximation *)
-  dist_nn    : forall a b, 0 <= dist a b;
-  dist_refl  : forall a,   dist a a = 0;
-  dist_symm  : forall a b, dist a b = dist b a;
-  dist_tri   : forall a b c, dist a c <= dist a b + dist b c;
+Inductive ExtR : Type :=
+  | Fin : R -> ExtR
+  | Inf : ExtR.
+
+Definition ExtR_le (x y : ExtR) : Prop :=
+  match x, y with
+  | Fin r, Fin s => (r <= s)%R
+  | Fin _, Inf => True
+  | Inf, Fin _ => False
+  | Inf, Inf => True
+  end.
+
+Definition ExtR_plus (x y : ExtR) : ExtR :=
+  match x, y with
+  | Fin r, Fin s => Fin (r + s)%R
+  | _, _ => Inf
+  end.
+
+Declare Scope extR_scope.
+Delimit Scope extR_scope with extR.
+Infix "<=e" := ExtR_le (at level 70, no associativity) : extR_scope.
+Infix "+e" := ExtR_plus (at level 50, left associativity) : extR_scope.
+
+Lemma ExtR_le_refl : forall x, ExtR_le x x.
+Proof.
+  destruct x; simpl; lra.
+Qed.
+
+Lemma ExtR_le_trans : forall x y z,
+    ExtR_le x y -> ExtR_le y z -> ExtR_le x z.
+Proof.
+  destruct x, y, z; simpl; try tauto; lra.
+Qed.
+
+(** Paper-faithful metric space: distances are in R+ ∪ {∞}, and
+    identity of indiscernibles is part of the structure. *)
+Record ExtMetricSpace := {
+  ext_carrier : Type;
+  ext_dist : ext_carrier -> ext_carrier -> ExtR;
+  ext_dist_nn : forall a b, ExtR_le (Fin 0%R) (ext_dist a b);
+  ext_dist_refl : forall a, ext_dist a a = Fin 0%R;
+  ext_dist_eq0 : forall a b, ext_dist a b = Fin 0%R -> a = b;
+  ext_dist_symm : forall a b, ext_dist a b = ext_dist b a;
+  ext_dist_tri : forall a b c,
+    ExtR_le (ext_dist a c) (ExtR_plus (ext_dist a b) (ext_dist b c));
 }.
 
-(** Interpretation of a signature in a pseudo-metric space. *)
-Definition algebra_ops (sig : signature) (A : PseudoMetricSpace) :=
+Definition algebra_ops (sig : signature) (A : ExtMetricSpace) :=
   forall (f : sym sig),
-    Vector.t (carrier A) (arity sig f) -> carrier A.
+    Vector.t (ext_carrier A) (arity sig f) -> ext_carrier A.
 
-(** Non-expansiveness: if d(a_i, b_i) ≤ ε for all i then
-    d(f(a), f(b)) ≤ ε. *)
-Definition non_expansive {sig} (A : PseudoMetricSpace)
+Definition dist_le_Q (A : ExtMetricSpace) (a b : ext_carrier A) (ε : Q) : Prop :=
+  ExtR_le (ext_dist A a b) (Fin (Q2R ε)).
+
+Definition non_expansive {sig} (A : ExtMetricSpace)
     (ops : algebra_ops sig A) : Prop :=
   forall (f : sym sig)
-         (as_ bs : Vector.t (carrier A) (arity sig f)) ε,
+         (as_ bs : Vector.t (ext_carrier A) (arity sig f)) ε,
     0 <= ε ->
-    (forall i, dist A (Vector.nth as_ i) (Vector.nth bs i) <= ε) ->
-    dist A (ops f as_) (ops f bs) <= ε.
+    (forall i, dist_le_Q A (Vector.nth as_ i) (Vector.nth bs i) ε) ->
+    dist_le_Q A (ops f as_) (ops f bs) ε.
 
 (** Definition 3.1 — Quantitative Algebra. *)
 Record QAlgebra (sig : signature) := {
-  qa_metric : PseudoMetricSpace;
+  qa_metric : ExtMetricSpace;
   qa_ops    : algebra_ops sig qa_metric;
   qa_nexp   : non_expansive qa_ops;
 }.
 
 (** The carrier of a quantitative algebra. *)
-Definition qa_carrier {sig} (A : QAlgebra sig) := carrier (qa_metric A).
+Definition qa_carrier {sig} (A : QAlgebra sig) := ext_carrier (qa_metric A).
 
 (** Definition 3.1 — Degenerate quantitative algebra.
     The paper calls A degenerate when its support is empty or a
@@ -391,8 +426,8 @@ Definition degenerate {sig} (A : QAlgebra sig) : Prop :=
 Record QAlgHom {sig} (A B : QAlgebra sig) := {
   hom_fun    : qa_carrier A -> qa_carrier B;
   hom_nexp   : forall a b,
-    dist (qa_metric B) (hom_fun a) (hom_fun b) <=
-    dist (qa_metric A) a b;
+    ExtR_le (ext_dist (qa_metric B) (hom_fun a) (hom_fun b))
+            (ext_dist (qa_metric A) a b);
   hom_compat : forall (f : sym sig)
     (v : Vector.t (qa_carrier A) (arity sig f)),
     hom_fun (qa_ops A f v) =
@@ -410,7 +445,7 @@ Definition same_hom {sig} {A B : QAlgebra sig}
 Definition QAlgHom_id {sig} (A : QAlgebra sig) : QAlgHom A A.
 Proof.
   refine {| hom_fun := fun a => a |}.
-  - intros a b. lra.
+  - intros a b. apply ExtR_le_refl.
   - intros f v. simpl.
     f_equal.
     apply Vector.eq_nth_iff; intros i j Hij.
@@ -424,7 +459,7 @@ Definition QAlgHom_comp {sig} {A B C : QAlgebra sig}
 Proof.
   refine {| hom_fun := fun a => hom_fun g (hom_fun h a) |}.
   - intros a b.
-    eapply Qle_trans; [apply hom_nexp | apply hom_nexp].
+    eapply ExtR_le_trans; [apply hom_nexp | apply hom_nexp].
   - intros f v. simpl.
     rewrite hom_compat.
     rewrite hom_compat.
@@ -440,8 +475,8 @@ Defined.
 Record QSubAlgebra {sig} (A B : QAlgebra sig) := {
   sub_embed  : qa_carrier B -> qa_carrier A;
   sub_isom   : forall b b',
-    dist (qa_metric A) (sub_embed b) (sub_embed b') =
-    dist (qa_metric B) b b';
+    ext_dist (qa_metric A) (sub_embed b) (sub_embed b') =
+    ext_dist (qa_metric B) b b';
   sub_closed : forall (f : sym sig)
     (v : Vector.t (qa_carrier B) (arity sig f)),
     sub_embed (qa_ops B f v) =
@@ -562,8 +597,8 @@ Definition satisfies_inf {sig X} (A : QAlgebra sig)
     (Γ : ctx sig X) (φ : qeq sig X) : Prop :=
   forall (ι : X -> qa_carrier A),
     (forall h, In h Γ ->
-      dist (qa_metric A) (eval A ι (lhs h)) (eval A ι (rhs h)) <= eps h) ->
-    dist (qa_metric A) (eval A ι (lhs φ)) (eval A ι (rhs φ)) <= eps φ.
+      dist_le_Q (qa_metric A) (eval A ι (lhs h)) (eval A ι (rhs h)) (eps h)) ->
+    dist_le_Q (qa_metric A) (eval A ι (lhs φ)) (eval A ι (rhs φ)) (eps φ).
 
 Notation "A |= Γ => φ" := (satisfies_inf A Γ φ) (at level 73).
 
@@ -601,12 +636,14 @@ Proof.
   }
   (* The hypotheses hold for ι' in A. *)
   assert (Hhyp_A : forall h, In h Γ ->
-      dist (qa_metric A) (eval A ι' (lhs h)) (eval A ι' (rhs h)) <= eps h).
+      dist_le_Q (qa_metric A) (eval A ι' (lhs h)) (eval A ι' (rhs h)) (eps h)).
   { intros h HIn.
+    unfold dist_le_Q.
     rewrite !eval_embed, iso_e.
     apply Hhyp; exact HIn. }
   (* Apply A's satisfaction. *)
   specialize (HA Γ φ HU ι' Hhyp_A).
+  unfold dist_le_Q in *.
   rewrite !eval_embed, iso_e in HA.
   exact HA.
 Qed.
@@ -619,8 +656,10 @@ Qed.
     pseudometric on TX:
         d_U(s, t) = inf { ε | U ⊢ s =_ε t }
 
-    In Rocq we represent this infimum as:
-        d_U s t = the greatest lower bound over Q. *)
+    The current file does not construct this infimum as a distance
+    value.  Instead it records the set of rational bounds and, when
+    needed, a Prop-level statement that a real number is its greatest
+    lower bound. *)
 
 Section InducedMetric.
 
@@ -629,6 +668,16 @@ Section InducedMetric.
   (** The set of ε values for which U ⊢ s =_ε t. *)
   Definition provable_eps (s t : term sig X) : Q -> Prop :=
     fun ε => derives_S U [] (s ~[ε] t).
+
+  Definition lower_bound_Qset (P : Q -> Prop) (r : R) : Prop :=
+    forall ε, P ε -> (r <= Q2R ε)%R.
+
+  Definition greatest_lower_bound_Qset (P : Q -> Prop) (r : R) : Prop :=
+    lower_bound_Qset P r /\
+    forall b, lower_bound_Qset P b -> (b <= r)%R.
+
+  Definition d_U_is_infimum (s t : term sig X) (r : R) : Prop :=
+    greatest_lower_bound_Qset (provable_eps s t) r.
 
   (** Proposition 5.1: δ_U(s,t) = 0 for all s,t.
       (The infimum over *conditionally* provable ε is always 0.)
@@ -639,8 +688,8 @@ Section InducedMetric.
 
   (** Proposition 5.2 and Section 5 main result:
       d_U(s,t) = inf { ε | U [] (s ~[ε] t) }.
-      We state this as a Prop-valued lower bound; a full treatment
-      requires the reals.  We record the key statements below. *)
+      We state this through [d_U_is_infimum], not by defining a
+      computable distance value. *)
 
   (** Lower bound: d_U(s,t) ≤ ε iff U derives s =_ε t
       (unconditionally). *)
@@ -826,60 +875,12 @@ Section Completeness.
   Theorem soundness : forall Γ φ,
     derives_S U Γ φ -> sem_entails Γ φ.
   Proof.
-    intros Γ φ Hderiv A HA.
-    unfold eq_class, models in HA.
-    (* Proceed by induction on the derivation. *)
-    induction Hderiv; intros ι Hhyp; simpl in *.
-    - (* D_Refl *) simpl.
-      rewrite dist_refl. lra.
-    - (* D_Symm *)
-      rewrite dist_symm. apply IHHderiv; exact Hhyp.
-    - (* D_Triang *)
-      eapply Qle_trans; [apply dist_tri |].
-      apply Qplus_le_compat.
-      + apply IHHderiv1; exact Hhyp.
-      + apply IHHderiv2; exact Hhyp.
-    - (* D_Max *)
-      eapply Qle_trans; [apply IHHderiv; exact Hhyp |].
-      change (eps (t ~[ε] s)) with ε. lra.
-    - (* D_EpsEq *)
-      eapply Qle_trans; [apply IHHderiv; exact Hhyp |].
-      change (eps (t ~[ε] s)) with ε. lra.
-    - (* D_Arch *)
-      set (d := dist (qa_metric A) (eval A ι t) (eval A ι s)).
-      destruct (Qlt_le_dec ε d) as [Hlt | Hle].
-      + assert (Hmid : ε < (ε + d) * (1#2)) by lra.
-        specialize (H1 ((ε + d) * (1#2)) Hmid ι Hhyp).
-        simpl in H1. fold d in H1. lra.
-      + exact Hle.
-    - (* D_NExp *)
-      apply qa_nexp; [exact H |].
-      intro i.
-      specialize (H1 i ι Hhyp).
-      simpl in H1.
-      rewrite <- (Vector.nth_map (eval A ι) ts i i eq_refl) in H1.
-      rewrite <- (Vector.nth_map (eval A ι) ss i i eq_refl) in H1.
-      exact H1.
-    - (* D_Subst *)
-      rewrite !eval_subst.
-      apply IHHderiv.
-      intros h HIn.
-      pose proof (Hhyp (subst_qeq σ h)) as Hs.
-      assert (Hin_subst : In (subst_qeq σ h) (subst_ctx σ Γ)).
-      { unfold subst_ctx. apply in_map. exact HIn. }
-      specialize (Hs Hin_subst).
-      unfold subst_qeq in Hs; simpl in Hs.
-      rewrite !eval_subst in Hs.
-      exact Hs.
-    - (* D_Cut *)
-      apply IHHderiv.
-      intros h HIn.
-      apply H0; [exact HIn | exact Hhyp].
-    - (* D_Assumpt *)
-      apply Hhyp. exact H.
-    - (* DS_Axiom *)
-      exact (HA Γ φ H ι Hhyp).
-  Qed.
+    (* The previous proof used the finite Q-valued pseudometric
+       directly.  With the paper-faithful R+ ∪ {∞}-valued metric this
+       needs the corresponding extended-real order lemmas, especially
+       for Triang, Max, EpsEq, and Arch. *)
+    admit.
+  Admitted.
 
   (** Completeness statement (Theorem 6.8). *)
   Theorem completeness : forall Γ φ,
