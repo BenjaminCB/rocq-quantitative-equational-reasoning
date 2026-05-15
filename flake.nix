@@ -74,9 +74,16 @@
               coqPackages.mathcomp
               coqPackages.mathcomp-ssreflect
               coqPackages.mathcomp-algebra
+              coqPackages.mathcomp-order
               coqPackages.mathcomp-classical
               coqPackages.mathcomp-reals
+              coqPackages.mathcomp-finmap
               coqPackages.mathcomp-analysis
+              coqPackages.coquelicot
+              coqPackages.flocq
+              coqPackages.interval
+              coqPackages.equations
+              coqPackages.hierarchy-builder
               jq
               rocq-watch
             ])

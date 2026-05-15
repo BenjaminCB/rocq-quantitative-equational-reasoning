@@ -48,6 +48,7 @@ Import ListNotations.
 Require Import Coq.Relations.Relation_Definitions.
 Require Import Coq.Classes.RelationClasses.
 Require Import Reals Psatz.
+From Equations Require Import Equations.
 
 Set Implicit Arguments.
 
@@ -106,9 +107,9 @@ Proof.
   - reflexivity.
   - simpl. f_equal.
     apply Vector.eq_nth_iff; intros i j Hij.
-    rewrite (Vector.nth_map (subst_term σ) (Vector.map (subst_term τ) v) i i eq_refl).
-    rewrite (Vector.nth_map (subst_term τ) v i i eq_refl).
-    rewrite (Vector.nth_map (subst_term (subst_comp σ τ)) v j j eq_refl).
+    rewrite (Vector.nth_map (subst_term σ) (Vector.map (subst_term τ) v) i i Logic.eq_refl).
+    rewrite (Vector.nth_map (subst_term τ) v i i Logic.eq_refl).
+    rewrite (Vector.nth_map (subst_term (subst_comp σ τ)) v j j Logic.eq_refl).
     subst j.
     apply IH.
 Qed.
@@ -184,10 +185,10 @@ Inductive derives (sig : signature) (X : Type)
       Γ |- (t ~[ε] s) ->
       Γ |- (t ~[ε + ε'] s)
 
-  (** Epsilon equality: Coq's rationals use setoid equality [==],
+  (** Epsilon equality: Coq's rationals use setoid equality [Qeq],
       so the proof system must be closed under equal rational bounds. *)
   | D_EpsEq : forall Γ t s ε δ,
-      ε == δ ->
+      Qeq ε δ ->
       Γ |- (t ~[ε] s) ->
       Γ |- (t ~[δ] s)
 
@@ -296,7 +297,7 @@ Inductive derives_S {sig X} (S : axiom_set sig X)
       derives_S S Γ (t ~[ε] s) ->
       derives_S S Γ (t ~[ε + ε'] s)
   | DS_EpsEq  : forall Γ t s ε δ,
-      ε == δ ->
+      Qeq ε δ ->
       derives_S S Γ (t ~[ε] s) ->
       derives_S S Γ (t ~[δ] s)
   | DS_Arch   : forall Γ t s ε,
@@ -347,19 +348,16 @@ Inductive ExtR : Type :=
   | Fin : R -> ExtR
   | Inf : ExtR.
 
-Definition ExtR_le (x y : ExtR) : Prop :=
-  match x, y with
-  | Fin r, Fin s => (r <= s)%R
-  | Fin _, Inf => True
-  | Inf, Fin _ => False
-  | Inf, Inf => True
-  end.
+Equations ExtR_le (x y : ExtR) : Prop :=
+ExtR_le (Fin r) (Fin s) := (r <= s)%R;
+ExtR_le (Fin _) Inf := True;
+ExtR_le Inf (Fin _) := False;
+ExtR_le Inf Inf := True.
 
-Definition ExtR_plus (x y : ExtR) : ExtR :=
-  match x, y with
-  | Fin r, Fin s => Fin (r + s)%R
-  | _, _ => Inf
-  end.
+Equations ExtR_plus (x y : ExtR) : ExtR :=
+ExtR_plus (Fin r) (Fin s) := Fin (r + s)%R;
+ExtR_plus Inf _ := Inf;
+ExtR_plus _ Inf := Inf.
 
 Declare Scope extR_scope.
 Delimit Scope extR_scope with extR.
@@ -368,13 +366,13 @@ Infix "+e" := ExtR_plus (at level 50, left associativity) : extR_scope.
 
 Lemma ExtR_le_refl : forall x, ExtR_le x x.
 Proof.
-  destruct x; simpl; lra.
+  destruct x; simp ExtR_le; lra.
 Qed.
 
 Lemma ExtR_le_trans : forall x y z,
     ExtR_le x y -> ExtR_le y z -> ExtR_le x z.
 Proof.
-  destruct x, y, z; simpl; try tauto; lra.
+  destruct x, y, z; simp ExtR_le; try tauto; lra.
 Qed.
 
 (** Paper-faithful metric space: distances are in R+ ∪ {∞}, and
@@ -449,7 +447,7 @@ Proof.
   - intros f v. simpl.
     f_equal.
     apply Vector.eq_nth_iff; intros i j Hij.
-    rewrite (Vector.nth_map (fun a : qa_carrier A => a) v j j eq_refl).
+    rewrite (Vector.nth_map (fun a : qa_carrier A => a) v j j Logic.eq_refl).
     subst j. reflexivity.
 Defined.
 
@@ -582,9 +580,9 @@ Proof.
   - reflexivity.
   - simpl. f_equal.
     apply Vector.eq_nth_iff; intros i j Hij.
-    rewrite (Vector.nth_map (eval A ι) (Vector.map (subst_term σ) v) i i eq_refl).
-    rewrite (Vector.nth_map (subst_term σ) v i i eq_refl).
-    rewrite (Vector.nth_map (eval A (fun x : X => eval A ι (σ x))) v j j eq_refl).
+    rewrite (Vector.nth_map (eval A ι) (Vector.map (subst_term σ) v) i i Logic.eq_refl).
+    rewrite (Vector.nth_map (subst_term σ) v i i Logic.eq_refl).
+    rewrite (Vector.nth_map (eval A (fun x : X => eval A ι (σ x))) v j j Logic.eq_refl).
     subst j.
     apply IH.
 Qed.
