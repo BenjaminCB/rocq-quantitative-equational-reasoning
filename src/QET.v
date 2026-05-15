@@ -380,6 +380,12 @@ Record QAlgebra (sig : signature) := {
 (** The carrier of a quantitative algebra. *)
 Definition qa_carrier {sig} (A : QAlgebra sig) := carrier (qa_metric A).
 
+(** Definition 3.1 — Degenerate quantitative algebra.
+    The paper calls A degenerate when its support is empty or a
+    singleton.  Equivalently, any two carrier elements are equal. *)
+Definition degenerate {sig} (A : QAlgebra sig) : Prop :=
+  forall a b : qa_carrier A, a = b.
+
 (** Definition 3.2 — Homomorphism of quantitative algebras.
     A non-expansive Ω-algebra homomorphism. *)
 Record QAlgHom {sig} (A B : QAlgebra sig) := {
