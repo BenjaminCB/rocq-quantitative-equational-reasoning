@@ -93,8 +93,8 @@ Definition subst_qeq {sig X}
 Definition ctx sig X := seq (qeq sig X).
 
 Definition subst_ctx {sig X}
-    (sigma : X -> term sig X) (Gamma : ctx sig X) : ctx sig X :=
-  map (subst_qeq sigma) Gamma.
+    (sigma : X -> term sig X) : ctx sig X -> ctx sig X :=
+  map (subst_qeq sigma).
 
 Reserved Notation "Gamma '|-' phi" (at level 72).
 
@@ -112,13 +112,10 @@ Inductive derives (sig : signature) (X : Type)
       Gamma |- (s ~[eps'] u) ->
       Gamma |- (t ~[eps + eps'] u)
   | D_Max : forall Gamma t s eps eps',
-      Qnn eps -> (0 < eps')%R ->
+      Qnn eps -> 
+      (0 < eps')%R ->
       Gamma |- (t ~[eps] s) ->
       Gamma |- (t ~[eps + eps'] s)
-  | D_EpsEq : forall Gamma t s eps delta,
-      eps = delta ->
-      Gamma |- (t ~[eps] s) ->
-      Gamma |- (t ~[delta] s)
   | D_Arch : forall Gamma t s eps,
       Qnn eps ->
       (forall eps', (eps < eps')%R -> Gamma |- (t ~[eps'] s)) ->
@@ -156,7 +153,7 @@ Lemma derives_empty_cut {sig X} (Gamma : ctx sig X) phi :
 Proof.
   move=> H.
   apply: (D_Cut (Gamma' := [::])).
-  - move=> psi Hpsi. by inversion Hpsi.
+  - move => psi Hpsi. inversion Hpsi.
   - exact H.
 Qed.
 
@@ -180,10 +177,6 @@ Inductive derives_S {sig X} (S : axiom_set sig X)
       Qnn eps -> (0 < eps')%R ->
       derives_S S Gamma (t ~[eps] s) ->
       derives_S S Gamma (t ~[eps + eps'] s)
-  | DS_EpsEq : forall Gamma t s eps delta,
-      eps = delta ->
-      derives_S S Gamma (t ~[eps] s) ->
-      derives_S S Gamma (t ~[delta] s)
   | DS_Arch : forall Gamma t s eps,
       Qnn eps ->
       (forall eps', (eps < eps')%R -> derives_S S Gamma (t ~[eps'] s)) ->
@@ -207,14 +200,14 @@ Inductive derives_S {sig X} (S : axiom_set sig X)
   | DS_Axiom : forall Gamma phi,
       S Gamma phi -> derives_S S Gamma phi.
 
-Definition qe_theory {sig X} (S : axiom_set sig X) : axiom_set sig X :=
-  fun Gamma phi => derives_S S Gamma phi.
+Definition qe_theory {sig X} (S : axiom_set sig X) : axiom_set sig X := 
+  derives_S S.
 
-Definition inconsistent {sig X} (U : axiom_set sig X) : Prop :=
-  exists x y : X, x <> y /\ U [::] (Var x ~[0] Var y).
+Definition inconsistent {sig X} (S : axiom_set sig X) : Prop :=
+  exists x y : X, x <> y /\ S [::] (Var x ~[0] Var y).
 
-Definition consistent {sig X} (U : axiom_set sig X) : Prop :=
-  ~ inconsistent U.
+Definition consistent {sig X} (S : axiom_set sig X) : Prop :=
+  ~ inconsistent S.
 
 (* ============================================================
    MathComp-backed quantitative algebras and semantics
@@ -222,12 +215,12 @@ Definition consistent {sig X} (U : axiom_set sig X) : Prop :=
 
 Record QAlgebra (R : realType) (sig : signature) := {
   qa_metric : ext_metric_space R;
-  qa_ops : @mc_algebra_ops R (sym sig) (@arity sig) qa_metric;
-  qa_nexp : @mc_non_expansive R (sym sig) (@arity sig) qa_metric qa_ops;
+  qa_ops : algebra_ops (@arity sig) qa_metric;
+  qa_nexp : non_expansive qa_ops;
 }.
 
 Definition qa_carrier {R sig} (A : QAlgebra R sig) :=
-  mc_carrier (qa_metric A).
+  carrier (qa_metric A).
 
 Definition degenerate {R sig} (A : QAlgebra R sig) : Prop :=
   forall a b : qa_carrier A, a = b.
@@ -235,54 +228,58 @@ Definition degenerate {R sig} (A : QAlgebra R sig) : Prop :=
 Record QAlgHom {R sig} (A B : QAlgebra R sig) := {
   hom_fun : qa_carrier A -> qa_carrier B;
   hom_nexp : forall a b,
-    @mc_dist R (qa_metric B) (hom_fun a) (hom_fun b) <=
-    @mc_dist R (qa_metric A) a b;
+    dist (hom_fun a) (hom_fun b) <=
+    dist a b;
   hom_compat : forall f (v : 'I_(@arity sig f) -> qa_carrier A),
-    hom_fun (@qa_ops R sig A f v) =
-    @qa_ops R sig B f (fun i => hom_fun (v i));
+    hom_fun (qa_ops v) =
+    qa_ops (fun i => hom_fun (v i));
 }.
 
 Fixpoint eval {R sig X} (A : QAlgebra R sig)
     (rho : X -> qa_carrier A) (t : term sig X) : qa_carrier A :=
   match t with
   | Var x => rho x
-  | App f args => @qa_ops R sig A f (fun i => @eval R sig X A rho (args i))
+  | App f args => qa_ops (fun i => @eval R sig X A rho (args i))
   end.
 
 Lemma eval_subst {R sig X} (A : QAlgebra R sig)
     (rho : X -> qa_carrier A) (sigma : X -> term sig X) t :
-  @eval R sig X A rho (subst_term sigma t) =
-  @eval R sig X A (fun x => @eval R sig X A rho (sigma x)) t.
+  eval rho (subst_term sigma t) =
+  eval (eval rho \o sigma) t.
 Proof.
   elim: t => [x | f args IH] //=.
-  congr (@qa_ops R sig A f _).
+  congr (qa_ops _).
   apply functional_extensionality => i.
   exact: IH.
 Qed.
 
 Definition qdist_le {R : realType} {sig X} (embed : rat -> R) (A : QAlgebra R sig)
     (rho : X -> qa_carrier A) (phi : qeq sig X) : Prop :=
-  @mc_dist_le R (qa_metric A)
-    (@eval R sig X A rho (lhs phi)) (@eval R sig X A rho (rhs phi))
+  dist_le 
+    (eval rho (lhs phi)) 
+    (eval rho (rhs phi))
     (embed (eps phi)).
 
-Definition satisfies_inf {R : realType} {sig X} (embed : rat -> R) (A : QAlgebra R sig)
-    (Gamma : ctx sig X) (phi : qeq sig X) : Prop :=
+Definition satisfies_inf {R : realType} {sig X} 
+    (embed : rat -> R) 
+    (A : QAlgebra R sig)
+    (Gamma : ctx sig X) 
+    (phi : qeq sig X) : Prop :=
   forall rho,
-    (forall h, List.In h Gamma -> @qdist_le R sig X embed A rho h) ->
+    (forall psi, List.In psi Gamma -> @qdist_le R sig X embed A rho psi) ->
     @qdist_le R sig X embed A rho phi.
 
 Definition models {R : realType} {sig X} (embed : rat -> R)
-    (A : QAlgebra R sig) (U : axiom_set sig X) : Prop :=
-  forall Gamma phi, U Gamma phi -> @satisfies_inf R sig X embed A Gamma phi.
+    (A : QAlgebra R sig) (S : axiom_set sig X) : Prop :=
+  forall Gamma phi, S Gamma phi -> satisfies_inf embed A Gamma phi.
 
-Definition provable_eps {sig X} (U : axiom_set sig X)
+Definition provable_eps {sig X} (S : axiom_set sig X)
     (s t : term sig X) : rat -> Prop :=
-  fun eps => derives_S U [::] (s ~[eps] t).
+  fun eps => derives_S S [::] (s ~[eps] t).
 
-Definition d_U {R : realType} {sig X} (embed : rat -> R) (U : axiom_set sig X)
+Definition d_S {R : realType} {sig X} (embed : rat -> R) (S : axiom_set sig X)
     (s t : term sig X) : \bar R :=
-  extended_infimum embed (provable_eps U s t).
+  extended_infimum embed (provable_eps S s t).
 
 Definition same_hom {R sig} {A B : QAlgebra R sig}
     (h k : QAlgHom A B) : Prop :=
