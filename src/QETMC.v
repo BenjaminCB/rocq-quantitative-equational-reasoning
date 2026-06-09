@@ -306,11 +306,11 @@ Defined.
 Record QSubAlgebra {R sig} (A B : QAlgebra R sig) := {
   sub_embed : qa_carrier B -> qa_carrier A;
   sub_isom : forall b b',
-    @mc_dist R (qa_metric A) (sub_embed b) (sub_embed b') =
-    @mc_dist R (qa_metric B) b b';
-  sub_closed : forall f (v : 'I_(@arity sig f) -> qa_carrier B),
-    sub_embed (@qa_ops R sig B f v) =
-    @qa_ops R sig A f (fun i => sub_embed (v i));
+    dist (sub_embed b) (sub_embed b') =
+    dist b b';
+  sub_closed : forall f (v : 'I_(arity f) -> qa_carrier B),
+    sub_embed (qa_ops v) =
+    qa_ops (fun i => sub_embed (v i));
 }.
 
 Record QAlgSubcategory (R : realType) (sig : signature) := {
@@ -343,34 +343,40 @@ Record Category := {
   comp_id_r : forall {X Y} (f : Hom X Y), comp f (id X) = f;
 }.
 
+Notation "f <| g" := (comp f g)
+  (at level 40, left associativity).
+
 Record FunctorFromQAlgSubcat {R sig}
     (K : QAlgSubcategory R sig) (C : Category) := {
   fobj : QAlgebra R sig -> Obj C;
   fmap : forall {A B : QAlgebra R sig} (h : QAlgHom A B)
       (Hh : K_hom K h),
-    @Hom C (fobj A) (fobj B);
+    Hom (fobj A) (fobj B);
 }.
+
+Notation "f <$> e" := (fmap f e)
+  (at level 40, left associativity).
 
 Definition universal_morphism {R sig} {C : Category}
     {K : QAlgSubcategory R sig}
     (G : FunctorFromQAlgSubcat K C)
     (C0 : Obj C)
     (A : QAlgebra R sig) (HA : K_obj K A)
-    (alpha : @Hom C C0 (fobj G A)) : Prop :=
+    (alpha : Hom C0 (fobj G A)) : Prop :=
   forall (B : QAlgebra R sig) (HB : K_obj K B)
-         (beta : @Hom C C0 (fobj G B)),
+         (beta : Hom C0 (fobj G B)),
     exists h : QAlgHom A B,
       forall (Hh : K_hom K h),
-        @comp C _ _ _ (@fmap R sig K C G A B h Hh) alpha = beta /\
+        (G <$> Hh) <| alpha = beta /\
         forall (k : QAlgHom A B) (Hk : K_hom K k),
-          @comp C _ _ _ (@fmap R sig K C G A B k Hk) alpha = beta -> same_hom k h.
+          (G <$> Hk) <| alpha = beta -> same_hom k h.
 
 Definition has_universal_mapping_property {R sig} {C : Category}
     {K : QAlgSubcategory R sig}
     (G : FunctorFromQAlgSubcat K C)
     (C0 : Obj C)
     (A : QAlgebra R sig) (HA : K_obj K A) : Prop :=
-  exists alpha : @Hom C C0 (fobj G A),
+  exists alpha : Hom C0 (fobj G A),
     @universal_morphism R sig C K G C0 A HA alpha.
 
 Definition eq_class {R : realType} {sig X} (embed : rat -> R)
@@ -383,25 +389,26 @@ Lemma eq_class_subalgebra {R : realType} {sig X} (embed : rat -> R)
   eq_class embed U A ->
   eq_class embed U B.
 Proof.
-  move=> [emb iso_e closed] HA Gamma phi HU rho Hhyp.
-  set rhoA := fun x => emb (rho x).
+  move => [emb iso_e closed] HA Gamma phi HU rho Hhyp.
+  set rhoA := emb \o rho.
   have eval_embed : forall t,
-      @eval R sig X A rhoA t = emb (@eval R sig X B rho t).
-  { elim=> [x | f args IH] //=.
+      eval rhoA t = emb (eval rho t).
+  { elim => [x | f args IH] //=.
     rewrite closed.
-    congr (@qa_ops R sig A f _).
-    apply functional_extensionality => i.
-    exact: IH.
+    congr qa_ops; apply functional_extensionality => i.
+    by apply IH.
   }
   have HhypA : forall h, List.In h Gamma ->
-      @qdist_le R sig X embed A rhoA h.
-  { move=> h Hh.
-    rewrite /qdist_le /mc_dist_le !eval_embed iso_e.
-    exact: (Hhyp h Hh).
+      qdist_le embed rhoA h.
+  { move => h Hh.
+    rewrite /qdist_le /dist_le.
+    rewrite !eval_embed iso_e.
+    by apply (Hhyp h Hh).
   }
   move: (HA Gamma phi HU rhoA HhypA).
-  rewrite /qdist_le /mc_dist_le !eval_embed iso_e.
-  exact.
+  rewrite /qdist_le /dist_le.
+  rewrite !eval_embed iso_e.
+  by [].
 Qed.
 
 (* ============================================================
@@ -416,17 +423,16 @@ Section InducedMetric.
     derives_S U [::] (s ~[(0 : rat)] t).
 
   Lemma term_equiv_refl : forall t, term_equiv t t.
-  Proof. move=> t. exact: DS_Refl. Qed.
+  Proof. exact: DS_Refl. Qed.
 
   Lemma term_equiv_symm : forall s t, term_equiv s t -> term_equiv t s.
-  Proof. move=> s t H. exact: (DS_Symm Qnn_zero H). Qed.
+  Proof. move => s t H. exact: (DS_Symm Qnn_zero H). Qed.
 
   Lemma term_equiv_trans : forall s t u,
       term_equiv s t -> term_equiv t u -> term_equiv s u.
   Proof.
-    move=> s t u Hst Htu.
-    exact (@DS_Triang sig X U [::] s t u (0 : rat) (0 : rat)
-      Qnn_zero Qnn_zero Hst Htu).
+    move => s t u Hst Htu.
+    exact: DS_Triang Qnn_zero Qnn_zero Hst Htu.
   Qed.
 
 End InducedMetric.
@@ -441,11 +447,11 @@ Section FreeAlgebra.
     fun eps => derives_S U [::] (s ~[eps] t).
 
   Lemma free_dist_zero_refl : forall t, free_dist t t (0 : rat).
-  Proof. move=> t. exact: DS_Refl. Qed.
+  Proof. by apply DS_Refl. Qed.
 
   Lemma free_dist_symm : forall s t eps,
       Qnn eps -> free_dist s t eps -> free_dist t s eps.
-  Proof. move=> s t eps Heps H. exact: (DS_Symm Heps H). Qed.
+  Proof. move=> s t eps Heps H. apply (DS_Symm Heps H). Qed.
 
   Lemma free_dist_tri : forall s t u eps eps',
       Qnn eps -> Qnn eps' ->
@@ -453,7 +459,7 @@ Section FreeAlgebra.
       free_dist s u (eps + eps').
   Proof.
     move=> s t u eps eps' Heps Heps' Hst Htu.
-    exact: (DS_Triang Heps Heps' Hst Htu).
+    apply: (DS_Triang Heps Heps' Hst Htu).
   Qed.
 
   Lemma free_ops_nexp :
@@ -463,7 +469,7 @@ Section FreeAlgebra.
     free_dist (App f ts) (App f ss) eps.
   Proof.
     move=> f ts ss eps Heps Hcomp.
-    exact: (DS_NExp Heps Hcomp).
+    apply: (DS_NExp Heps Hcomp).
   Qed.
 
   Lemma free_equiv_congruence :
@@ -472,7 +478,7 @@ Section FreeAlgebra.
     term_equiv U (App f xs) (App f ys).
   Proof.
     move=> f xs ys H.
-    exact: (DS_NExp Qnn_zero H).
+    apply: (DS_NExp Qnn_zero H).
   Qed.
 
   Theorem free_algebra_is_model :
@@ -493,8 +499,8 @@ Section FreeAlgebra.
     - move=> psi Hpsi.
       rewrite /subst_ctx in Hpsi.
       move/List.in_map_iff: Hpsi => [h [<- Hh]].
-      exact: (Hhyp h Hh).
-    - exact (@DS_Subst sig X U Gamma phi_lhs phi_rhs phi_eps sigma
+      apply: (Hhyp h Hh).
+    - apply: (@DS_Subst sig X U Gamma phi_lhs phi_rhs phi_eps sigma
         (@DS_Axiom sig X U Gamma (phi_lhs ~[phi_eps] phi_rhs) HU)).
   Qed.
 
