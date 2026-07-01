@@ -200,6 +200,16 @@ Inductive derives_S {sig X} (S : axiom_set sig X)
   | DS_Axiom : forall Gamma phi,
       S Gamma phi -> derives_S S Gamma phi.
 
+Lemma derives_S_empty_cut {sig X} (S : axiom_set sig X)
+    (Gamma : ctx sig X) phi :
+  derives_S S [::] phi -> derives_S S Gamma phi.
+Proof.
+  move=> H.
+  apply: (DS_Cut (Gamma' := [::])).
+  - move=> psi Hpsi. inversion Hpsi.
+  - exact H.
+Qed.
+
 Definition qe_theory {sig X} (S : axiom_set sig X) : axiom_set sig X := 
   derives_S S.
 
@@ -350,7 +360,28 @@ Qed.
 Proposition gamma_U_eq_d_U {R : realType} {sig X}
     (U : axiom_set sig X) (s t : term sig X) :
   @gamma_U R sig X U s t = @d_U R sig X U s t.
-Admitted.
+Proof.
+  rewrite /gamma_U /d_U /extended_infimum /bound_set.
+  congr ereal_inf.
+  apply/seteqP; split=> r.
+  - move=> H.
+    case: H => x Hbound Hfin.
+    move: Hbound => [eps [Hderive Hx]].
+    exists x.
+    + exists eps; split.
+      * exact: (Hderive [::]).
+      * exact Hx.
+    + exact Hfin.
+  - move=> H.
+    case: H => x Hbound Hfin.
+    move: Hbound => [eps [Hderive Hx]].
+    exists x.
+    + exists eps; split.
+      * move=> Gamma.
+        exact: derives_S_empty_cut Hderive.
+      * exact Hx.
+    + exact Hfin.
+Qed.
 
 Definition same_hom {R sig} {A B : QAlgebra R sig}
     (h k : QAlgHom A B) : Prop :=
