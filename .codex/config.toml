@@ -1,0 +1,21 @@
+[mcp_servers.rocq]
+command = "nix"
+args = [
+  "develop",
+  ".",
+  "-c",
+  "rocq-mcp"
+]
+startup_timeout_sec = 120
+tool_timeout_sec = 300
+enabled = true
+
+[mcp_servers.local-rag]
+command = "npx"
+args = ["-y", "mcp-local-rag"]
+startup_timeout_sec = 60
+tool_timeout_sec = 300
+enabled = true
+
+[mcp_servers.local-rag.env]
+BASE_DIR = "docs"

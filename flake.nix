@@ -151,6 +151,7 @@
               pkgs.ripgrep
               pkgs.jq
               pkgs.watchexec
+              pkgs.nodejs_22
             ]
             ++ [
               codex-nix.packages.${system}.default
