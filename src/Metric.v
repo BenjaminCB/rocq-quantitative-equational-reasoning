@@ -22,6 +22,10 @@ Local Open Scope ring_scope.
 Local Open Scope ereal_scope.
 Local Open Scope classical_set_scope.
 
+(* ============================================================
+   Section 3: Quantitative Algebras (metric infrastructure)
+   ============================================================ *)
+
 (** Extended non-negative real-valued metric space, using MathComp's
     extended reals [\bar R].  This is the library-backed version of
     paper Definition 3.1's metric component. *)

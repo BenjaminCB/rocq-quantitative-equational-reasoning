@@ -8,6 +8,10 @@
    - MathComp Analysis extended reals through Metric.v.
    ============================================================ *)
 
+(* ============================================================
+   Section 2: Quantitative Equational Theories
+   ============================================================ *)
+
 From Stdlib Require Import Logic.FunctionalExtensionality.
 From Stdlib Require Import Lists.List.
 From HB Require Import structures.
@@ -35,7 +39,7 @@ Lemma Qnn_zero : Qnn (0 : rat).
 Proof. apply: lexx. Qed.
 
 (* ============================================================
-   Signatures and terms
+   Section 2.1: Signatures and terms
    ============================================================ *)
 
 Record signature := {
@@ -72,7 +76,7 @@ Proof.
 Qed.
 
 (* ============================================================
-   Quantitative equations and deduction
+   Section 2.2: Quantitative equations and deduction rules
    ============================================================ *)
 
 Record qeq (sig : signature) (X : Type) := {
@@ -220,8 +224,10 @@ Definition consistent {sig X} (S : axiom_set sig X) : Prop :=
   ~ inconsistent S.
 
 (* ============================================================
-   MathComp-backed quantitative algebras and semantics
+   Section 3: Quantitative Algebras
    ============================================================ *)
+
+(* QAlgebra definitions and related structures *)
 
 Record QAlgebra (R : realType) (sig : signature) := {
   qa_metric : ext_metric_space R;
@@ -263,6 +269,10 @@ Proof.
   exact: IH.
 Qed.
 
+(* ============================================================
+   Section 4: Algebraic Semantics for Quantitative Equations
+   ============================================================ *)
+
 Definition qdist_le {R : realType} {sig X} (embed : rat -> R) (A : QAlgebra R sig)
     (rho : X -> qa_carrier A) (phi : qeq sig X) : Prop :=
   dist_le 
@@ -296,6 +306,10 @@ Proof.
   move => [eps Heps] /=.
   by rewrite ler0q.
 Qed.
+
+(* ============================================================
+   Section 5: The Induced Pseudometric
+   ============================================================ *)
 
 Definition d_U {R : realType} {sig X} (U : axiom_set sig X)
     (s t : term sig X) : \bar R :=
@@ -382,6 +396,11 @@ Proof.
       * exact Hx.
     + exact Hfin.
 Qed.
+
+(* ============================================================
+   Additional categorical infrastructure for QAlgebras
+   (Related to the categorical perspective mentioned in the paper)
+   ============================================================ *)
 
 Definition same_hom {R sig} {A B : QAlgebra R sig}
     (h k : QAlgHom A B) : Prop :=
@@ -514,8 +533,10 @@ Proof.
 Qed.
 
 (* ============================================================
-   Induced term pseudometric and free term algebra facts
+   Section 7: Free Quantitative Algebras
    ============================================================ *)
+
+(* Induced term pseudometric properties - continuation of Section 5 *)
 
 Section InducedMetric.
 
@@ -538,6 +559,8 @@ Section InducedMetric.
   Qed.
 
 End InducedMetric.
+
+(* Free algebra constructions - main content of Section 7 *)
 
 Section FreeAlgebra.
 
