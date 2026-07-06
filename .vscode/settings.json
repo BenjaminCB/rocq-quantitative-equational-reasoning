@@ -1,1 +1,1 @@
-{"vsrocq.completion.enable":true,"vsrocq.diagnostics.full":true,"vsrocq.path":"/nix/store/qd90v2xbyh95zinfndqbkjk6s33gwyad-ocaml4.14.4-vsrocq-language-server-2.4.3/bin/vsrocqtop"}
+{"vsrocq.args":["-Q","src","Template"],"vsrocq.completion.enable":true,"vsrocq.diagnostics.full":true,"vsrocq.path":"/nix/store/xv55k72z9acfnrrsnyhlmn2x06pv7i9j-vsrocqtop/bin/vsrocqtop"}

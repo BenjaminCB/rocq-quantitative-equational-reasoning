@@ -12,3 +12,7 @@ result-*
 *.vok
 *.vos
 .aider*
+
+# Local RAG index and model cache
+lancedb/
+models/

@@ -502,7 +502,7 @@ Definition has_universal_mapping_property {R sig} {C : Category}
 
 Definition eq_class {R : realType} {sig X} (embed : rat -> R)
     (U : axiom_set sig X) (A : QAlgebra R sig) : Prop :=
-  Model embed A U.
+  models embed A U.
 
 Lemma eq_class_subalgebra {R : realType} {sig X} (embed : rat -> R)
     (U : axiom_set sig X) (A B : QAlgebra R sig) :

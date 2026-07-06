@@ -69,10 +69,30 @@
           ];
         };
 
-        vsrocqtop = "${pkgs.rocqPackages.vsrocq-language-server}/bin/vsrocqtop";
+        vsrocqtop = pkgs.writeShellApplication {
+          name = "vsrocqtop";
+
+          runtimeInputs = [
+            rocqEnv
+            pkgs.rocqPackages.vsrocq-language-server
+          ];
+
+          text = ''
+            export ROCQPATH="${rocqEnv}/lib/coq/9.1/user-contrib''${ROCQPATH:+:$ROCQPATH}"
+            export COQPATH="$ROCQPATH"
+            export OCAMLPATH="${rocqEnv}/lib/ocaml/4.14.4/site-lib''${OCAMLPATH:+:$OCAMLPATH}"
+            export CAML_LD_LIBRARY_PATH="${rocqEnv}/lib/ocaml/4.14.4/site-lib/stublibs''${CAML_LD_LIBRARY_PATH:+:$CAML_LD_LIBRARY_PATH}"
+            exec ${pkgs.rocqPackages.vsrocq-language-server}/bin/vsrocqtop "$@"
+          '';
+        };
 
         settingsJson = builtins.toJSON {
-          "vsrocq.path" = vsrocqtop;
+          "vsrocq.path" = "${vsrocqtop}/bin/vsrocqtop";
+          "vsrocq.args" = [
+            "-Q"
+            "src"
+            "Template"
+          ];
           "vsrocq.completion.enable" = true;
           "vsrocq.diagnostics.full" = true;
         };
@@ -158,7 +178,7 @@
             ];
 
           shellHook = ''
-                        export VSROCQTOP_PATH="${vsrocqtop}"
+                        export VSROCQTOP_PATH="${vsrocqtop}/bin/vsrocqtop"
 
                         mkdir -p .vscode
 
