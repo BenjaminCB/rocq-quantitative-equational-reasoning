@@ -273,25 +273,24 @@ Qed.
    Section 4: Algebraic Semantics for Quantitative Equations
    ============================================================ *)
 
-Definition qdist_le {R : realType} {sig X} (embed : rat -> R) (A : QAlgebra R sig)
+Definition qdist_le {R : realType} {sig X} (A : QAlgebra R sig)
     (rho : X -> qa_carrier A) (phi : qeq sig X) : Prop :=
   dist_le 
     (eval rho (lhs phi)) 
     (eval rho (rhs phi))
-    (embed (eps phi)).
+    (ratr (eps phi)).
 
 Definition satisfies_inf {R : realType} {sig X} 
-    (embed : rat -> R) 
     (A : QAlgebra R sig)
     (Gamma : ctx sig X) 
     (phi : qeq sig X) : Prop :=
   forall rho,
-    (forall psi, List.In psi Gamma -> @qdist_le R sig X embed A rho psi) ->
-    @qdist_le R sig X embed A rho phi.
+    (forall psi, List.In psi Gamma -> @qdist_le R sig X A rho psi) ->
+    @qdist_le R sig X A rho phi.
 
-Definition models {R : realType} {sig X} (embed : rat -> R)
+Definition models {R : realType} {sig X}
     (A : QAlgebra R sig) (S : axiom_set sig X) : Prop :=
-  forall Gamma phi, S Gamma phi -> satisfies_inf embed A Gamma phi.
+  forall Gamma phi, S Gamma phi -> satisfies_inf A Gamma phi.
 
 Definition nnrat : Type := {eps : rat | Qnn eps}.
 
@@ -500,15 +499,15 @@ Definition has_universal_mapping_property {R sig} {C : Category}
   exists alpha : Hom C0 (fobj G A),
     @universal_morphism R sig C K G C0 A HA alpha.
 
-Definition eq_class {R : realType} {sig X} (embed : rat -> R)
+Definition eq_class {R : realType} {sig X}
     (U : axiom_set sig X) (A : QAlgebra R sig) : Prop :=
-  models embed A U.
+  models A U.
 
-Lemma eq_class_subalgebra {R : realType} {sig X} (embed : rat -> R)
+Lemma eq_class_subalgebra {R : realType} {sig X}
     (U : axiom_set sig X) (A B : QAlgebra R sig) :
   QSubAlgebra A B ->
-  eq_class embed U A ->
-  eq_class embed U B.
+  eq_class U A ->
+  eq_class U B.
 Proof.
   move => [emb iso_e closed] HA Gamma phi HU rho Hhyp.
   set rhoA := emb \o rho.
@@ -520,7 +519,7 @@ Proof.
     by apply IH.
   }
   have HhypA : forall h, List.In h Gamma ->
-      qdist_le embed rhoA h.
+      @qdist_le R sig X A rhoA h.
   { move => h Hh.
     rewrite /qdist_le /dist_le.
     rewrite !eval_embed iso_e.
