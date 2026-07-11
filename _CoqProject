@@ -1,3 +1,4 @@
 -Q src Template
 src/Metric.v
+src/Category.v
 src/QET.v

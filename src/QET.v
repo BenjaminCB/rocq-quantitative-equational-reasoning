@@ -20,7 +20,7 @@ From mathcomp Require Import all_ssreflect_compat all_algebra.
 (* add non constructive axioms *)
 From mathcomp Require Import all_classical reals ereal.
 
-From Template Require Import Metric.
+From Template Require Import Metric Category.
 
 Set Implicit Arguments.
 Unset Strict Implicit.
@@ -397,8 +397,7 @@ Proof.
 Qed.
 
 (* ============================================================
-   Additional categorical infrastructure for QAlgebras
-   (Related to the categorical perspective mentioned in the paper)
+   QAlgebra-specific categorical infrastructure
    ============================================================ *)
 
 Definition same_hom {R sig} {A B : QAlgebra R sig}
@@ -450,21 +449,6 @@ Definition initial_in {R sig} (K : QAlgSubcategory R sig)
     exists h : QAlgHom A B,
       K_hom K h /\
       forall k : QAlgHom A B, K_hom K k -> same_hom k h.
-
-Record Category := {
-  Obj : Type;
-  Hom : Obj -> Obj -> Type;
-  id : forall X, Hom X X;
-  comp : forall {X Y Z}, Hom Y Z -> Hom X Y -> Hom X Z;
-  comp_assoc : forall {W X Y Z}
-      (h : Hom Y Z) (g : Hom X Y) (f : Hom W X),
-    comp h (comp g f) = comp (comp h g) f;
-  comp_id_l : forall {X Y} (f : Hom X Y), comp (id Y) f = f;
-  comp_id_r : forall {X Y} (f : Hom X Y), comp f (id X) = f;
-}.
-
-Notation "f <| g" := (comp f g)
-  (at level 40, left associativity).
 
 Record FunctorFromQAlgSubcat {R sig}
     (K : QAlgSubcategory R sig) (C : Category) := {

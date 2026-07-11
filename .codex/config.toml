@@ -4,6 +4,15 @@ startup_timeout_sec = 120
 tool_timeout_sec = 300
 enabled = true
 
+[mcp_servers.rocq.tools.rocq_compile_file]
+approval_mode = "approve"
+
+[mcp_servers.rocq.tools.rocq_query]
+approval_mode = "approve"
+
+[mcp_servers.rocq.tools.rocq_start]
+approval_mode = "approve"
+
 [mcp_servers.local-rag]
 command = "npx"
 args = ["-y", "mcp-local-rag"]
