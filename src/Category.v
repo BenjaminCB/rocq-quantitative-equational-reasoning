@@ -131,7 +131,7 @@ Proof.
                    (metric_hom_nexp f a b)).
 Defined.
 
-Definition MetricSpaceCategory (R : realType) : Category.
+Definition Met (R : realType) : Category.
 Proof.
   refine {|
     obj := ext_metric_space R;
