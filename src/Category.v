@@ -34,64 +34,64 @@ Notation "f <| g" := (comp f g)
   (at level 40, left associativity).
 
 Record Functor (C D : Category) := {
-  functor_obj : Obj C -> Obj D;
-  functor_hom : forall {X Y : Obj C},
-    Hom X Y -> Hom (functor_obj X) (functor_obj Y);
-  functor_id : forall X,
-    functor_hom (id X) = id (functor_obj X);
-  functor_comp : forall {X Y Z : Obj C}
+  f_obj : Obj C -> Obj D;
+  f_hom : forall {X Y : Obj C},
+    Hom X Y -> Hom (f_obj X) (f_obj Y);
+  f_id : forall X,
+    f_hom (id X) = id (f_obj X);
+  f_comp : forall {X Y Z : Obj C}
       (g : Hom Y Z) (f : Hom X Y),
-    functor_hom (g <| f) = functor_hom g <| functor_hom f;
+    f_hom (g <| f) = f_hom g <| f_hom f;
 }.
 
 Record MonoidalCategory := {
   mon_cat :> Category;
-  tensor_obj : Obj mon_cat -> Obj mon_cat -> Obj mon_cat;
-  tensor_hom : forall {A B C D : Obj mon_cat},
-    Hom A C -> Hom B D -> Hom (tensor_obj A B) (tensor_obj C D);
-  tensor_unit : Obj mon_cat;
-  tensor_assoc : forall A B C,
-    Hom (tensor_obj (tensor_obj A B) C)
-        (tensor_obj A (tensor_obj B C));
-  tensor_assoc_inv : forall A B C,
-    Hom (tensor_obj A (tensor_obj B C))
-        (tensor_obj (tensor_obj A B) C);
-  tensor_left_unitor : forall A,
-    Hom (tensor_obj tensor_unit A) A;
-  tensor_left_unitor_inv : forall A,
-    Hom A (tensor_obj tensor_unit A);
-  tensor_right_unitor : forall A,
-    Hom (tensor_obj A tensor_unit) A;
-  tensor_right_unitor_inv : forall A,
-    Hom A (tensor_obj A tensor_unit)
+  t_obj : Obj mon_cat -> Obj mon_cat -> Obj mon_cat;
+  t_hom : forall {A B C D : Obj mon_cat},
+    Hom A C -> Hom B D -> Hom (t_obj A B) (t_obj C D);
+  t_unit : Obj mon_cat;
+  t_assoc : forall A B C,
+    Hom (t_obj (t_obj A B) C)
+        (t_obj A (t_obj B C));
+  t_assoc_inv : forall A B C,
+    Hom (t_obj A (t_obj B C))
+        (t_obj (t_obj A B) C);
+  t_left_unitor : forall A,
+    Hom (t_obj t_unit A) A;
+  t_left_unitor_inv : forall A,
+    Hom A (t_obj t_unit A);
+  t_right_unitor : forall A,
+    Hom (t_obj A t_unit) A;
+  t_right_unitor_inv : forall A,
+    Hom A (t_obj A t_unit)
 }.
 
 Record EnrichedCategory (V : MonoidalCategory) := {
-  enriched_obj : Type;
-  enriched_hom : enriched_obj -> enriched_obj -> Obj V;
-  enriched_id : forall X,
-    Hom (tensor_unit V) (enriched_hom X X);
-  enriched_comp : forall X Y Z,
-    Hom (tensor_obj (enriched_hom Y Z) (enriched_hom X Y))
-        (enriched_hom X Z)
+  e_obj : Type;
+  e_hom : e_obj -> e_obj -> Obj V;
+  e_id : forall X,
+    Hom (t_unit V) (e_hom X X);
+  e_comp : forall X Y Z,
+    Hom (t_obj (e_hom Y Z) (e_hom X Y))
+        (e_hom X Z)
 }.
 
 Record EnrichedFunctor {V : MonoidalCategory}
     (C D : EnrichedCategory V) := {
-  enriched_functor_obj : enriched_obj C -> enriched_obj D;
-  enriched_functor_hom : forall X Y,
-    Hom (enriched_hom X Y)
-        (enriched_hom (enriched_functor_obj X) (enriched_functor_obj Y));
-  enriched_functor_id : forall X,
-    enriched_functor_hom X X <| @enriched_id V C X =
-    @enriched_id V D (enriched_functor_obj X);
-  enriched_functor_comp : forall X Y Z,
-    enriched_functor_hom X Z <| @enriched_comp V C X Y Z =
-    @enriched_comp V D
-        (enriched_functor_obj X)
-        (enriched_functor_obj Y)
-        (enriched_functor_obj Z)
-      <| tensor_hom (enriched_functor_hom Y Z) (enriched_functor_hom X Y);
+  e_f_obj : e_obj C -> e_obj D;
+  e_f_hom : forall X Y,
+    Hom (e_hom X Y)
+        (e_hom (e_f_obj X) (e_f_obj Y));
+  e_f_id : forall X,
+    e_f_hom X X <| @e_id V C X =
+    @e_id V D (e_f_obj X);
+  e_f_comp : forall X Y Z,
+    e_f_hom X Z <| @e_comp V C X Y Z =
+    @e_comp V D
+        (e_f_obj X)
+        (e_f_obj Y)
+        (e_f_obj Z)
+      <| t_hom (e_f_hom Y Z) (e_f_hom X Y);
 }.
 
 Record MetricHom {R : realType} (M N : ext_metric_space R) := {
