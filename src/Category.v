@@ -33,6 +33,17 @@ Record Category := {
 Notation "f <| g" := (comp f g)
   (at level 40, left associativity).
 
+Record Functor (C D : Category) := {
+  functor_obj : Obj C -> Obj D;
+  functor_hom : forall {X Y : Obj C},
+    Hom X Y -> Hom (functor_obj X) (functor_obj Y);
+  functor_id : forall X,
+    functor_hom (id X) = id (functor_obj X);
+  functor_comp : forall {X Y Z : Obj C}
+      (g : Hom Y Z) (f : Hom X Y),
+    functor_hom (g <| f) = functor_hom g <| functor_hom f;
+}.
+
 Record MonoidalCategory := {
   mon_cat :> Category;
   tensor_obj : Obj mon_cat -> Obj mon_cat -> Obj mon_cat;
@@ -63,6 +74,24 @@ Record EnrichedCategory (V : MonoidalCategory) := {
   enriched_comp : forall X Y Z,
     Hom (tensor_obj (enriched_hom Y Z) (enriched_hom X Y))
         (enriched_hom X Z)
+}.
+
+Record EnrichedFunctor {V : MonoidalCategory}
+    (C D : EnrichedCategory V) := {
+  enriched_functor_obj : enriched_obj C -> enriched_obj D;
+  enriched_functor_hom : forall X Y,
+    Hom (enriched_hom X Y)
+        (enriched_hom (enriched_functor_obj X) (enriched_functor_obj Y));
+  enriched_functor_id : forall X,
+    enriched_functor_hom X X <| @enriched_id V C X =
+    @enriched_id V D (enriched_functor_obj X);
+  enriched_functor_comp : forall X Y Z,
+    enriched_functor_hom X Z <| @enriched_comp V C X Y Z =
+    @enriched_comp V D
+        (enriched_functor_obj X)
+        (enriched_functor_obj Y)
+        (enriched_functor_obj Z)
+      <| tensor_hom (enriched_functor_hom Y Z) (enriched_functor_hom X Y);
 }.
 
 Record MetricHom {R : realType} (M N : ext_metric_space R) := {

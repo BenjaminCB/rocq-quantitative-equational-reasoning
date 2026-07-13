@@ -13,6 +13,9 @@ approval_mode = "approve"
 [mcp_servers.rocq.tools.rocq_start]
 approval_mode = "approve"
 
+[mcp_servers.rocq.tools.rocq_toc]
+approval_mode = "approve"
+
 [mcp_servers.local-rag]
 command = "npx"
 args = ["-y", "mcp-local-rag"]
@@ -22,3 +25,15 @@ enabled = true
 
 [mcp_servers.local-rag.env]
 BASE_DIR = "docs"
+
+[mcp_servers.local-rag.tools.query_documents]
+approval_mode = "approve"
+
+[mcp_servers.local-rag.tools.list_files]
+approval_mode = "approve"
+
+[mcp_servers.local-rag.tools.ingest_file]
+approval_mode = "approve"
+
+[mcp_servers.local-rag.tools.read_chunk_neighbors]
+approval_mode = "approve"
