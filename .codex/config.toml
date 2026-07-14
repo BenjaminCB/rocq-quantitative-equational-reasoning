@@ -16,6 +16,12 @@ approval_mode = "approve"
 [mcp_servers.rocq.tools.rocq_toc]
 approval_mode = "approve"
 
+[mcp_servers.rocq.tools.rocq_health]
+approval_mode = "approve"
+
+[mcp_servers.rocq.tools.rocq_compile]
+approval_mode = "approve"
+
 [mcp_servers.local-rag]
 command = "npx"
 args = ["-y", "mcp-local-rag"]
@@ -36,4 +42,7 @@ approval_mode = "approve"
 approval_mode = "approve"
 
 [mcp_servers.local-rag.tools.read_chunk_neighbors]
+approval_mode = "approve"
+
+[mcp_servers.local-rag.tools.status]
 approval_mode = "approve"
