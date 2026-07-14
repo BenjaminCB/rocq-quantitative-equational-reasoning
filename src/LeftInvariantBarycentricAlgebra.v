@@ -3,10 +3,7 @@
    enriched Lawvere theory
    ============================================================ *)
 
-From Stdlib Require Import Lists.List.
-From HB Require Import structures.
 From mathcomp Require Import all_ssreflect_compat all_algebra.
-From mathcomp Require Import all_classical reals ereal.
 
 From Template Require Import QET Category.
 
@@ -79,10 +76,6 @@ Inductive LIB_rule {X : Type} : ctx bary_sig X -> qeq bary_sig X -> Prop :=
       LIB_rule [::]
         (Var x' <+ e +> Var x ~[eps] Var x'' <+ e +> Var x).
 
-Definition LIB_rule_at (n : nat) :
-    ctx bary_sig 'I_n -> qeq bary_sig 'I_n -> Prop :=
-  @LIB_rule 'I_n.
-
 Definition LIB_QLT : QuantitativeLawvereTheory :=
   {| qlt_sig := bary_sig; qlt_rule := fun X => @LIB_rule X |}.
 
@@ -109,7 +102,7 @@ Lemma LIB_B1_arrow_rel (n : nat) (x y : 'I_n) :
 Proof.
   split; first exact: Qnn_zero.
   move=> i.
-  apply: DSS_Axiom.
+  apply: D_Axiom.
   apply: LIB_B1.
 Qed.
 
@@ -120,7 +113,7 @@ Lemma LIB_B2_arrow_rel (n : nat) (e : bary_weight) (x : 'I_n) :
 Proof.
   split; first exact: Qnn_zero.
   move=> i.
-  apply: DSS_Axiom.
+  apply: D_Axiom.
   apply: LIB_B2.
 Qed.
 
@@ -133,4 +126,4 @@ Definition LIB_comp {n m k : nat}
 
 Definition LIB_derives (n : nat) :
     ctx bary_sig 'I_n -> qeq bary_sig 'I_n -> Prop :=
-  fun Gamma phi => derives_S (@LIB_rule_at n) Gamma phi.
+  @qlt_derives LIB_QLT 'I_n.
