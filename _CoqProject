@@ -2,3 +2,4 @@
 src/Metric.v
 src/Category.v
 src/QET.v
+src/LeftInvariantBarycentricAlgebra.v

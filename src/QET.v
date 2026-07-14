@@ -13,6 +13,7 @@
    ============================================================ *)
 
 From Stdlib Require Import Logic.FunctionalExtensionality.
+From Stdlib Require Import Logic.ProofIrrelevance.
 From Stdlib Require Import Lists.List.
 From HB Require Import structures.
 From mathcomp Require Import all_ssreflect_compat all_algebra.
@@ -54,19 +55,21 @@ Inductive term (sig : signature) (X : Type) : Type :=
 Arguments Var {sig X} _.
 Arguments App {sig X} _ _.
 
-Fixpoint subst_term {sig X} (sigma : X -> term sig X)
-    (t : term sig X) : term sig X :=
+Fixpoint subst_term {sig X Y} (sigma : X -> term sig Y)
+    (t : term sig X) : term sig Y :=
   match t with
   | Var x => sigma x
   | App f args => App f (subst_term sigma \o args)
   end.
 
-Definition subst_comp {sig X}
-    (sigma tau : X -> term sig X) : X -> term sig X :=
+Definition subst_comp {sig X Y Z}
+    (sigma : Y -> term sig Z) (tau : X -> term sig Y) :
+    X -> term sig Z :=
   subst_term sigma \o tau.
 
-Lemma subst_term_comp {sig X}
-    (sigma tau : X -> term sig X) (t : term sig X) :
+Lemma subst_term_comp {sig X Y Z}
+    (sigma : Y -> term sig Z) (tau : X -> term sig Y)
+    (t : term sig X) :
   subst_term sigma (subst_term tau t) = subst_term (subst_comp sigma tau) t.
 Proof.
   elim: t => [x | f args IH] //=.
@@ -88,16 +91,16 @@ Record qeq (sig : signature) (X : Type) := {
 Notation "t ~[ e ] s" := {| lhs := t; rhs := s; eps := e |}
   (at level 70, no associativity).
 
-Definition subst_qeq {sig X}
-    (sigma : X -> term sig X) (q : qeq sig X) : qeq sig X :=
+Definition subst_qeq {sig X Y}
+    (sigma : X -> term sig Y) (q : qeq sig X) : qeq sig Y :=
   {| lhs := subst_term sigma (lhs q);
      rhs := subst_term sigma (rhs q);
      eps := eps q |}.
 
 Definition ctx sig X := seq (qeq sig X).
 
-Definition subst_ctx {sig X}
-    (sigma : X -> term sig X) : ctx sig X -> ctx sig X :=
+Definition subst_ctx {sig X Y}
+    (sigma : X -> term sig Y) : ctx sig X -> ctx sig Y :=
   map (subst_qeq sigma).
 
 Reserved Notation "Gamma '|-' phi" (at level 72).
@@ -214,6 +217,58 @@ Proof.
   - exact H.
 Qed.
 
+Definition axiom_scheme (sig : signature) :=
+  forall X : Type, axiom_set sig X.
+
+Inductive derives_scheme {sig} (S : axiom_scheme sig)
+    : forall X : Type, ctx sig X -> qeq sig X -> Prop :=
+  | DSS_Refl : forall X Gamma t,
+      @derives_scheme sig S X Gamma (t ~[0] t)
+  | DSS_Symm : forall X Gamma t s eps,
+      Qnn eps ->
+      @derives_scheme sig S X Gamma (t ~[eps] s) ->
+      @derives_scheme sig S X Gamma (s ~[eps] t)
+  | DSS_Triang : forall X Gamma t s u eps eps',
+      Qnn eps -> Qnn eps' ->
+      @derives_scheme sig S X Gamma (t ~[eps] s) ->
+      @derives_scheme sig S X Gamma (s ~[eps'] u) ->
+      @derives_scheme sig S X Gamma (t ~[eps + eps'] u)
+  | DSS_Max : forall X Gamma t s eps eps',
+      Qnn eps -> (0 < eps')%R ->
+      @derives_scheme sig S X Gamma (t ~[eps] s) ->
+      @derives_scheme sig S X Gamma (t ~[eps + eps'] s)
+  | DSS_Arch : forall X Gamma t s eps,
+      Qnn eps ->
+      (forall eps', (eps < eps')%R ->
+        @derives_scheme sig S X Gamma (t ~[eps'] s)) ->
+      @derives_scheme sig S X Gamma (t ~[eps] s)
+  | DSS_NExp : forall X Gamma (f : sym sig)
+                     (ts ss : 'I_(arity f) -> term sig X) eps,
+      Qnn eps ->
+      (forall i, @derives_scheme sig S X Gamma (ts i ~[eps] ss i)) ->
+      @derives_scheme sig S X Gamma (App f ts ~[eps] App f ss)
+  | DSS_Subst : forall X Y Gamma t s eps
+                       (sigma : X -> term sig Y),
+      @derives_scheme sig S X Gamma (t ~[eps] s) ->
+      @derives_scheme sig S Y (subst_ctx sigma Gamma)
+        (subst_term sigma t ~[eps] subst_term sigma s)
+  | DSS_Cut : forall X Gamma Gamma' phi,
+      (forall psi, List.In psi Gamma' -> @derives_scheme sig S X Gamma psi) ->
+      @derives_scheme sig S X Gamma' phi ->
+      @derives_scheme sig S X Gamma phi
+  | DSS_Assumpt : forall X Gamma phi,
+      List.In phi Gamma ->
+      @derives_scheme sig S X Gamma phi
+  | DSS_Axiom : forall X Gamma phi,
+      S X Gamma phi -> @derives_scheme sig S X Gamma phi.
+
+Arguments DSS_Refl {sig S X Gamma} t.
+Arguments DSS_Symm {sig S X Gamma t s eps} _ _.
+Arguments DSS_Triang {sig S X Gamma t s u eps eps'} _ _ _ _.
+Arguments DSS_NExp {sig S X Gamma f ts ss eps} _ _.
+Arguments DSS_Subst {sig S X Y Gamma t s eps} sigma _.
+Arguments DSS_Axiom {sig S X Gamma phi} _.
+
 Definition qe_theory {sig X} (S : axiom_set sig X) : axiom_set sig X := 
   derives_S S.
 
@@ -258,8 +313,8 @@ Fixpoint eval {R sig X} (A : QAlgebra R sig)
   | App f args => qa_ops (fun i => @eval R sig X A rho (args i))
   end.
 
-Lemma eval_subst {R sig X} (A : QAlgebra R sig)
-    (rho : X -> qa_carrier A) (sigma : X -> term sig X) t :
+Lemma eval_subst {R sig X Y} (A : QAlgebra R sig)
+    (rho : Y -> qa_carrier A) (sigma : X -> term sig Y) t :
   eval rho (subst_term sigma t) =
   eval (eval rho \o sigma) t.
 Proof.
@@ -397,6 +452,385 @@ Proof.
 Qed.
 
 (* ============================================================
+   Metric-enriched Lawvere theories
+   ============================================================ *)
+
+Definition lawvere_op (sig : signature) (n m : nat) : Type :=
+  'I_m -> term sig 'I_n.
+
+Definition lawvere_id (sig : signature) (n : nat) : lawvere_op sig n n :=
+  fun i => Var i.
+
+Definition lawvere_comp (sig : signature) {n m k : nat}
+    (g : lawvere_op sig m k) (f : lawvere_op sig n m) :
+    lawvere_op sig n k :=
+  fun i => subst_term f (g i).
+
+Lemma subst_term_var {sig X} (t : term sig X) :
+  subst_term Var t = t.
+Proof.
+  elim: t => [x | f args IH] //=.
+  congr App.
+  apply functional_extensionality => i.
+  exact: IH.
+Qed.
+
+Definition LawvereCategory (sig : signature) : Category.
+Proof.
+  refine {|
+    obj := nat;
+    hom := lawvere_op sig;
+    id := lawvere_id sig;
+    comp := fun _ _ _ => @lawvere_comp sig _ _ _
+  |}.
+  - move=> W X Y Z h g f.
+    apply functional_extensionality => i /=.
+    symmetry.
+    exact: subst_term_comp.
+  - move=> X Y f.
+    apply functional_extensionality => i /=.
+    reflexivity.
+  - move=> X Y f.
+    apply functional_extensionality => i /=.
+    exact: subst_term_var.
+Defined.
+
+Record QuantitativeSpace := {
+  qs_carrier : Type;
+  qs_rel : rat -> qs_carrier -> qs_carrier -> Prop;
+  qs_refl : forall x, qs_rel 0 x x;
+  qs_symm : forall eps x y, qs_rel eps x y -> qs_rel eps y x;
+  qs_tri : forall eps eps' x y z,
+    qs_rel eps x y -> qs_rel eps' y z -> qs_rel (eps + eps') x z;
+}.
+
+Record QSpaceHom (A B : QuantitativeSpace) := {
+  qs_hom_fun : qs_carrier A -> qs_carrier B;
+  qs_hom_nexp : forall eps x y,
+    @qs_rel A eps x y ->
+    @qs_rel B eps (qs_hom_fun x) (qs_hom_fun y);
+}.
+
+Arguments qs_hom_fun {A B} _ _.
+Arguments qs_hom_nexp {A B} _ {eps x y} _.
+
+Lemma QSpaceHom_ext {A B : QuantitativeSpace} (f g : QSpaceHom A B) :
+  (forall x, qs_hom_fun f x = qs_hom_fun g x) -> f = g.
+Proof.
+  case: f => ff f_nexp.
+  case: g => gf g_nexp.
+  move=> /= Hfg.
+  have Hfun : ff = gf by apply functional_extensionality.
+  case: gf / Hfun in g_nexp Hfg *.
+  f_equal.
+  apply proof_irrelevance.
+Qed.
+
+Definition QSpaceHom_id (A : QuantitativeSpace) : QSpaceHom A A.
+Proof.
+  refine {| qs_hom_fun := fun x => x |}.
+  move=> eps x y Hxy.
+  exact Hxy.
+Defined.
+
+Definition QSpaceHom_comp {A B C : QuantitativeSpace}
+    (g : QSpaceHom B C) (f : QSpaceHom A B) : QSpaceHom A C.
+Proof.
+  refine {| qs_hom_fun := fun x => qs_hom_fun g (qs_hom_fun f x) |}.
+  move=> eps x y Hxy.
+  apply: qs_hom_nexp.
+  exact: qs_hom_nexp.
+Defined.
+
+Definition QSpaceCat : Category.
+Proof.
+  refine {|
+    obj := QuantitativeSpace;
+    hom := QSpaceHom;
+    id := QSpaceHom_id;
+    comp := fun _ _ _ => @QSpaceHom_comp _ _ _
+  |}.
+  - move=> W X Y Z h g f.
+    apply QSpaceHom_ext => x.
+    reflexivity.
+  - move=> X Y f.
+    apply QSpaceHom_ext => x.
+    reflexivity.
+  - move=> X Y f.
+    apply QSpaceHom_ext => x.
+    reflexivity.
+Defined.
+
+Definition qspace_tensor_rel (A B : QuantitativeSpace)
+    (eps : rat) (xy xy' : qs_carrier A * qs_carrier B) : Prop :=
+  exists epsA : rat, exists epsB : rat,
+    eps = (epsA + epsB)%R /\
+    @qs_rel A epsA (fst xy) (fst xy') /\
+    @qs_rel B epsB (snd xy) (snd xy').
+
+Definition qspace_tensor (A B : QuantitativeSpace) : QuantitativeSpace.
+Proof.
+  refine {|
+    qs_carrier := qs_carrier A * qs_carrier B;
+    qs_rel := @qspace_tensor_rel A B
+  |}.
+  - move=> [x y].
+    exists (0 : rat), (0 : rat).
+    split; first by rewrite addr0.
+    split; exact: qs_refl.
+  - move=> eps [x y] [x' y'] [epsA [epsB [-> [Hx Hy]]]].
+    exists epsA, epsB.
+    split; first reflexivity.
+    split; exact: qs_symm.
+  - move=> eps eps' [x y] [x' y'] [x'' y''].
+    move=> [epsA [epsB [-> [Hx Hy]]]].
+    move=> [epsA' [epsB' [-> [Hx' Hy']]]].
+    exists (epsA + epsA')%R, (epsB + epsB')%R.
+    split; first by rewrite addrACA.
+    split.
+    + exact: (qs_tri Hx Hx').
+    + exact: (qs_tri Hy Hy').
+Defined.
+
+Definition qspace_unit : QuantitativeSpace.
+Proof.
+  refine {|
+    qs_carrier := unit;
+    qs_rel := fun eps _ _ => eps = (0 : rat)
+  |}.
+  - move=> [].
+    reflexivity.
+  - move=> eps [] [] H.
+    exact H.
+  - move=> eps eps' [] [] [] -> ->.
+    by rewrite addr0.
+Defined.
+
+Definition qspace_tensor_hom {A B C D : QuantitativeSpace}
+    (f : QSpaceHom A C) (g : QSpaceHom B D) :
+    QSpaceHom (qspace_tensor A B) (qspace_tensor C D).
+Proof.
+  refine (@Build_QSpaceHom (qspace_tensor A B) (qspace_tensor C D)
+    (fun xy : qs_carrier (qspace_tensor A B) =>
+      (qs_hom_fun f (fst xy), qs_hom_fun g (snd xy))) _).
+  move=> eps [x y] [x' y'] [epsA [epsB [Heps [Hx Hy]]]].
+  exists epsA, epsB.
+  split; first exact Heps.
+  split.
+  - exact: qs_hom_nexp Hx.
+  - exact: qs_hom_nexp Hy.
+Defined.
+
+Definition qspace_assoc (A B C : QuantitativeSpace) :
+    QSpaceHom (qspace_tensor (qspace_tensor A B) C)
+              (qspace_tensor A (qspace_tensor B C)).
+Proof.
+  refine (@Build_QSpaceHom
+    (qspace_tensor (qspace_tensor A B) C)
+    (qspace_tensor A (qspace_tensor B C))
+    (fun xyz : qs_carrier (qspace_tensor (qspace_tensor A B) C) =>
+      (fst (fst xyz), (snd (fst xyz), snd xyz))) _).
+  move=> eps [[x y] z] [[x' y'] z'].
+  move=> [epsAB [epsC [-> [[epsA [epsB [-> [Hx Hy]]]] Hz]]]].
+  exists epsA, (epsB + epsC)%R.
+  split; first by rewrite addrA.
+  split; first exact Hx.
+  exists epsB, epsC.
+  split; first reflexivity.
+  split; assumption.
+Defined.
+
+Definition qspace_assoc_inv (A B C : QuantitativeSpace) :
+    QSpaceHom (qspace_tensor A (qspace_tensor B C))
+              (qspace_tensor (qspace_tensor A B) C).
+Proof.
+  refine (@Build_QSpaceHom
+    (qspace_tensor A (qspace_tensor B C))
+    (qspace_tensor (qspace_tensor A B) C)
+    (fun xyz : qs_carrier (qspace_tensor A (qspace_tensor B C)) =>
+      ((fst xyz, fst (snd xyz)), snd (snd xyz))) _).
+  move=> eps [x [y z]] [x' [y' z']].
+  move=> [epsA [epsBC [-> [Hx [epsB [epsC [-> [Hy Hz]]]]]]]].
+  exists (epsA + epsB)%R, epsC.
+  split; first by rewrite addrA.
+  split; last exact Hz.
+  exists epsA, epsB.
+  split; first reflexivity.
+  split; assumption.
+Defined.
+
+Definition qspace_left_unitor (A : QuantitativeSpace) :
+    QSpaceHom (qspace_tensor qspace_unit A) A.
+Proof.
+  refine (@Build_QSpaceHom (qspace_tensor qspace_unit A) A
+    (fun ux : qs_carrier (qspace_tensor qspace_unit A) => snd ux) _).
+  move=> eps [[] x] [[] x'] [epsU [epsA [-> [-> Hx]]]].
+  by rewrite add0r.
+Defined.
+
+Definition qspace_left_unitor_inv (A : QuantitativeSpace) :
+    QSpaceHom A (qspace_tensor qspace_unit A).
+Proof.
+  refine (@Build_QSpaceHom A (qspace_tensor qspace_unit A)
+    (fun x : qs_carrier A => (tt, x)) _).
+  move=> eps x x' Hx.
+  exists (0 : rat), eps.
+  split; first by rewrite add0r.
+  split; first reflexivity.
+  exact Hx.
+Defined.
+
+Definition qspace_right_unitor (A : QuantitativeSpace) :
+    QSpaceHom (qspace_tensor A qspace_unit) A.
+Proof.
+  refine (@Build_QSpaceHom (qspace_tensor A qspace_unit) A
+    (fun xu : qs_carrier (qspace_tensor A qspace_unit) => fst xu) _).
+  move=> eps [x []] [x' []] [epsA [epsU [-> [Hx ->]]]].
+  by rewrite addr0.
+Defined.
+
+Definition qspace_right_unitor_inv (A : QuantitativeSpace) :
+    QSpaceHom A (qspace_tensor A qspace_unit).
+Proof.
+  refine (@Build_QSpaceHom A (qspace_tensor A qspace_unit)
+    (fun x : qs_carrier A => (x, tt)) _).
+  move=> eps x x' Hx.
+  exists eps, (0 : rat).
+  split; first by rewrite addr0.
+  split; last reflexivity.
+  exact Hx.
+Defined.
+
+Definition QSpaceMonoidal : MonoidalCategory.
+Proof.
+  refine {|
+    mon_cat := QSpaceCat;
+    t_obj := qspace_tensor;
+    t_hom := fun _ _ _ _ => qspace_tensor_hom;
+    t_unit := qspace_unit;
+    t_assoc := qspace_assoc;
+    t_assoc_inv := qspace_assoc_inv;
+    t_left_unitor := qspace_left_unitor;
+    t_left_unitor_inv := qspace_left_unitor_inv;
+    t_right_unitor := qspace_right_unitor;
+    t_right_unitor_inv := qspace_right_unitor_inv
+  |}.
+Defined.
+
+Record QuantitativeLawvereTheory := {
+  qlt_sig : signature;
+  qlt_rule : axiom_scheme qlt_sig;
+}.
+
+Arguments qlt_sig _ : clear implicits.
+Arguments qlt_rule _ : clear implicits.
+
+Definition qlt_derives (U : QuantitativeLawvereTheory) (X : Type) :
+    ctx (qlt_sig U) X -> qeq (qlt_sig U) X -> Prop :=
+  @derives_scheme (qlt_sig U) (qlt_rule U) X.
+
+Definition qlt_op (U : QuantitativeLawvereTheory) (n m : nat) : Type :=
+  lawvere_op (qlt_sig U) n m.
+
+Definition qlt_id (U : QuantitativeLawvereTheory) (n : nat) :
+    qlt_op U n n :=
+  @lawvere_id (qlt_sig U) n.
+
+Definition qlt_comp (U : QuantitativeLawvereTheory) {n m k : nat}
+    (g : qlt_op U m k) (f : qlt_op U n m) : qlt_op U n k :=
+  @lawvere_comp (qlt_sig U) n m k g f.
+
+Definition qlt_arrow_rel (U : QuantitativeLawvereTheory)
+    (n m : nat) (eps : rat) (f g : qlt_op U n m) : Prop :=
+  Qnn eps /\
+  forall i, @qlt_derives U 'I_n [::] (f i ~[eps] g i).
+
+Lemma subst_term_nexp {sig X} (U : axiom_set sig X)
+    (eps : rat) (sigma tau : X -> term sig X) (t : term sig X) :
+  Qnn eps ->
+  (forall x, derives_S U [::] (sigma x ~[eps] tau x)) ->
+  derives_S U [::] (subst_term sigma t ~[eps] subst_term tau t).
+Proof.
+  move=> Heps Hvars.
+  elim: t => [x | f args IH] //=.
+  apply: DS_NExp; first exact Heps.
+  move=> i.
+  exact: IH.
+Qed.
+
+Lemma subst_term_scheme_nexp {sig X Y} (S : axiom_scheme sig)
+    (eps : rat) (sigma tau : X -> term sig Y) (t : term sig X) :
+  Qnn eps ->
+  (forall x, @derives_scheme sig S Y [::] (sigma x ~[eps] tau x)) ->
+  @derives_scheme sig S Y [::] (subst_term sigma t ~[eps] subst_term tau t).
+Proof.
+  move=> Heps Hvars.
+  elim: t => [x | f args IH] //=.
+  apply: DSS_NExp; first exact Heps.
+  move=> i.
+  exact: IH.
+Qed.
+
+Definition qlt_hom_object (U : QuantitativeLawvereTheory)
+    (n m : nat) : QuantitativeSpace.
+Proof.
+  refine {|
+    qs_carrier := qlt_op U n m;
+    qs_rel := @qlt_arrow_rel U n m
+  |}.
+  - move=> f.
+    split; first exact: Qnn_zero.
+    move=> i.
+    exact: DSS_Refl.
+  - move=> eps f g [Heps Hfg].
+    split; first exact Heps.
+    move=> i.
+    exact: (DSS_Symm Heps (Hfg i)).
+  - move=> eps eps' f g h [Heps Hfg] [Heps' Hgh].
+    split; first exact: Qnn_add.
+    move=> i.
+    exact: (DSS_Triang Heps Heps' (Hfg i) (Hgh i)).
+Defined.
+
+Definition qlt_id_hom (U : QuantitativeLawvereTheory) (n : nat) :
+    QSpaceHom qspace_unit (qlt_hom_object U n n).
+Proof.
+  refine (@Build_QSpaceHom qspace_unit (qlt_hom_object U n n)
+    (fun _ : qs_carrier qspace_unit => @qlt_id U n) _).
+  move=> eps [] [] ->.
+  apply: qs_refl.
+Defined.
+
+Definition qlt_comp_hom (U : QuantitativeLawvereTheory)
+    (n m k : nat) :
+    QSpaceHom
+      (qspace_tensor (qlt_hom_object U m k) (qlt_hom_object U n m))
+      (qlt_hom_object U n k).
+Proof.
+  refine (@Build_QSpaceHom
+    (qspace_tensor (qlt_hom_object U m k) (qlt_hom_object U n m))
+    (qlt_hom_object U n k)
+    (fun gf : qs_carrier
+        (qspace_tensor (qlt_hom_object U m k) (qlt_hom_object U n m)) =>
+      @qlt_comp U n m k (fst gf) (snd gf)) _).
+  move=> eps [g f] [g' f'].
+  move=> [eps_g [eps_f [-> [[Hg_nn Hg] [Hf_nn Hf]]]]].
+  split; first exact: Qnn_add.
+  move=> i /=.
+  apply: (DSS_Triang Hg_nn Hf_nn).
+  - exact: (DSS_Subst f (Hg i)).
+  - apply: subst_term_scheme_nexp; first exact Hf_nn.
+    exact Hf.
+Defined.
+
+Definition EnrichedLawvereCategory (U : QuantitativeLawvereTheory) :
+    EnrichedCategory QSpaceMonoidal.
+Proof.
+  exact (@Build_EnrichedCategory QSpaceMonoidal
+    nat (qlt_hom_object U) (qlt_id_hom U) (qlt_comp_hom U)).
+Defined.
+
+(* ============================================================
    QAlgebra-specific categorical infrastructure
    ============================================================ *)
 
@@ -452,10 +886,10 @@ Definition initial_in {R sig} (K : QAlgSubcategory R sig)
 
 Record FunctorFromQAlgSubcat {R sig}
     (K : QAlgSubcategory R sig) (C : Category) := {
-  fobj : QAlgebra R sig -> Obj C;
+  fobj : QAlgebra R sig -> obj C;
   fmap : forall {A B : QAlgebra R sig} (h : QAlgHom A B)
       (Hh : K_hom K h),
-    Hom (fobj A) (fobj B);
+    hom (fobj A) (fobj B);
 }.
 
 Notation "f <$> e" := (fmap f e)
@@ -464,11 +898,11 @@ Notation "f <$> e" := (fmap f e)
 Definition universal_morphism {R sig} {C : Category}
     {K : QAlgSubcategory R sig}
     (G : FunctorFromQAlgSubcat K C)
-    (C0 : Obj C)
+    (C0 : obj C)
     (A : QAlgebra R sig) (HA : K_obj K A)
-    (alpha : Hom C0 (fobj G A)) : Prop :=
+    (alpha : hom C0 (fobj G A)) : Prop :=
   forall (B : QAlgebra R sig) (HB : K_obj K B)
-         (beta : Hom C0 (fobj G B)),
+         (beta : hom C0 (fobj G B)),
     exists h : QAlgHom A B,
       forall (Hh : K_hom K h),
         (G <$> Hh) <| alpha = beta /\
@@ -478,9 +912,9 @@ Definition universal_morphism {R sig} {C : Category}
 Definition has_universal_mapping_property {R sig} {C : Category}
     {K : QAlgSubcategory R sig}
     (G : FunctorFromQAlgSubcat K C)
-    (C0 : Obj C)
+    (C0 : obj C)
     (A : QAlgebra R sig) (HA : K_obj K A) : Prop :=
-  exists alpha : Hom C0 (fobj G A),
+  exists alpha : hom C0 (fobj G A),
     @universal_morphism R sig C K G C0 A HA alpha.
 
 Definition eq_class {R : realType} {sig X}
