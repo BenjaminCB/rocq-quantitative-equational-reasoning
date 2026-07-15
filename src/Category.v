@@ -94,14 +94,14 @@ Record EnrichedFunctor {V : MonoidalCategory}
       <| t_hom (e_f_hom Y Z) (e_f_hom X Y);
 }.
 
-Record Metrichom {R : realType} (M N : ext_metric_space R) := {
+Record Metric_hom {R : realType} (M N : ext_metric_space R) := {
   metric_hom_fun : carrier M -> carrier N;
   metric_hom_nexp : forall a b,
     dist (metric_hom_fun a) (metric_hom_fun b) <= dist a b
 }.
 
-Lemma Metrichom_ext {R : realType} {M N : ext_metric_space R}
-    (f g : Metrichom M N) :
+Lemma Metric_hom_ext {R : realType} {M N : ext_metric_space R}
+    (f g : Metric_hom M N) :
   (forall x, metric_hom_fun f x = metric_hom_fun g x) -> f = g.
 Proof.
   case: f => ff f_nexp.
@@ -113,17 +113,17 @@ Proof.
   apply proof_irrelevance.
 Qed.
 
-Definition Metrichom_id {R : realType} (M : ext_metric_space R) :
-    Metrichom M M.
+Definition Metric_hom_id {R : realType} (M : ext_metric_space R) :
+    Metric_hom M M.
 Proof.
   refine {| metric_hom_fun := fun x => x |}.
   move=> a b.
   exact: lexx.
 Defined.
 
-Definition Metrichom_comp {R : realType}
+Definition Metric_hom_comp {R : realType}
     {M N P : ext_metric_space R}
-    (g : Metrichom N P) (f : Metrichom M N) : Metrichom M P.
+    (g : Metric_hom N P) (f : Metric_hom M N) : Metric_hom M P.
 Proof.
   refine {| metric_hom_fun := fun x => metric_hom_fun g (metric_hom_fun f x) |}.
   move=> a b.
@@ -135,17 +135,17 @@ Definition Met (R : realType) : Category.
 Proof.
   refine {|
     obj := ext_metric_space R;
-    hom := @Metrichom R;
-    id := @Metrichom_id R;
-    comp := fun _ _ _ => @Metrichom_comp R _ _ _
+    hom := @Metric_hom R;
+    id := @Metric_hom_id R;
+    comp := fun _ _ _ => @Metric_hom_comp R _ _ _
   |}.
   - move=> W X Y Z h g f.
-    apply Metrichom_ext => x.
+    apply Metric_hom_ext => x.
     reflexivity.
   - move=> X Y f.
-    apply Metrichom_ext => x.
+    apply Metric_hom_ext => x.
     reflexivity.
   - move=> X Y f.
-    apply Metrichom_ext => x.
+    apply Metric_hom_ext => x.
     reflexivity.
 Defined.
