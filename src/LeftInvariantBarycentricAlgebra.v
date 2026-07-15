@@ -4,8 +4,9 @@
    ============================================================ *)
 
 From mathcomp Require Import all_ssreflect_compat all_algebra.
+From mathcomp Require Import all_classical reals ereal.
 
-From Template Require Import QET Category.
+From Template Require Import QET Category MetricLawvere.
 
 Set Implicit Arguments.
 Unset Strict Implicit.
@@ -127,3 +128,11 @@ Definition LIB_comp {n m k : nat}
 Definition LIB_derives (n : nat) :
     ctx bary_sig 'I_n -> qeq bary_sig 'I_n -> Prop :=
   @qlt_derives LIB_QLT 'I_n.
+
+Definition LIB_metric_quotient (R : realType) : Type :=
+  MetricLawvereQuotient R LIB_QLT.
+
+Definition LIB_metric_enriched_category
+    {R : realType} (Q : LIB_metric_quotient R) :
+    MetricEnrichedCategory R :=
+  MetricEnrichedLawvereCategory Q.
