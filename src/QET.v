@@ -6,8 +6,9 @@ From Stdlib Require Import Logic.FunctionalExtensionality.
 From Stdlib Require Import Logic.ProofIrrelevance.
 From Stdlib Require Import Lists.List.
 From mathcomp Require Import all_ssreflect_compat all_algebra.
+From mathcomp Require Import all_classical reals ereal.
 
-From Template Require Import Category.
+From Template Require Import Metric Category.
 
 Set Implicit Arguments.
 Unset Strict Implicit.
@@ -16,6 +17,8 @@ Unset Printing Implicit Defensive.
 Import Order.TTheory GRing.Theory Num.Theory.
 
 Local Open Scope ring_scope.
+Local Open Scope ereal_scope.
+Local Open Scope classical_set_scope.
 
 Notation Qnn q := (0 <= q)%R.
 
@@ -24,6 +27,20 @@ Proof. apply: addr_ge0. Qed.
 
 Lemma Qnn_zero : Qnn (0 : rat).
 Proof. apply: lexx. Qed.
+
+Definition nnrat := {q : rat | Qnn q}.
+
+Definition nnrat_val (eps : nnrat) : rat := sval eps.
+
+Definition nnrat_embed (R : realType) (eps : nnrat) : R :=
+  ratr (nnrat_val eps).
+
+Lemma nnrat_embed_ge0 (R : realType) (eps : nnrat) :
+  (0 <= nnrat_embed R eps)%R.
+Proof.
+  case: eps => eps Heps.
+  by rewrite /nnrat_embed /nnrat_val /= ler0q.
+Qed.
 
 (* ============================================================
    Signatures, terms, and substitution
@@ -98,72 +115,169 @@ Definition subst_ctx {sig X Y}
     (sigma : X -> term sig Y) : ctx sig X -> ctx sig Y :=
   map (subst_qeq sigma).
 
-Definition axiom_set (sig : signature) (X : Type) :=
-  ctx sig X -> qeq sig X -> Prop.
-
 Definition axiom_scheme (sig : signature) :=
-  forall X : Type, axiom_set sig X.
+  forall (X : Type), ctx sig X -> qeq sig X -> Prop.
 
-Inductive derives {sig} (S : axiom_scheme sig)
+Inductive derives {sig} (U : axiom_scheme sig)
     : forall X : Type, ctx sig X -> qeq sig X -> Prop :=
   | D_Refl : forall X Gamma t,
-      @derives sig S X Gamma (t ~[0] t)
+      @derives sig U X Gamma (t ~[0] t)
   | D_Symm : forall X Gamma t s eps,
       Qnn eps ->
-      @derives sig S X Gamma (t ~[eps] s) ->
-      @derives sig S X Gamma (s ~[eps] t)
+      @derives sig U X Gamma (t ~[eps] s) ->
+      @derives sig U X Gamma (s ~[eps] t)
   | D_Triang : forall X Gamma t s u eps eps',
       Qnn eps -> Qnn eps' ->
-      @derives sig S X Gamma (t ~[eps] s) ->
-      @derives sig S X Gamma (s ~[eps'] u) ->
-      @derives sig S X Gamma (t ~[eps + eps'] u)
+      @derives sig U X Gamma (t ~[eps] s) ->
+      @derives sig U X Gamma (s ~[eps'] u) ->
+      @derives sig U X Gamma (t ~[eps + eps'] u)
   | D_Max : forall X Gamma t s eps eps',
       Qnn eps -> (0 < eps')%R ->
-      @derives sig S X Gamma (t ~[eps] s) ->
-      @derives sig S X Gamma (t ~[eps + eps'] s)
+      @derives sig U X Gamma (t ~[eps] s) ->
+      @derives sig U X Gamma (t ~[eps + eps'] s)
   | D_Arch : forall X Gamma t s eps,
       Qnn eps ->
       (forall eps', (eps < eps')%R ->
-        @derives sig S X Gamma (t ~[eps'] s)) ->
-      @derives sig S X Gamma (t ~[eps] s)
+        @derives sig U X Gamma (t ~[eps'] s)) ->
+      @derives sig U X Gamma (t ~[eps] s)
   | D_NExp : forall X Gamma (f : sym sig)
                      (ts ss : 'I_(arity f) -> term sig X) eps,
       Qnn eps ->
-      (forall i, @derives sig S X Gamma (ts i ~[eps] ss i)) ->
-      @derives sig S X Gamma (App f ts ~[eps] App f ss)
+      (forall i, @derives sig U X Gamma (ts i ~[eps] ss i)) ->
+      @derives sig U X Gamma (App f ts ~[eps] App f ss)
   | D_Subst : forall X Y Gamma t s eps
                        (sigma : X -> term sig Y),
-      @derives sig S X Gamma (t ~[eps] s) ->
-      @derives sig S Y (subst_ctx sigma Gamma)
+      @derives sig U X Gamma (t ~[eps] s) ->
+      @derives sig U Y (subst_ctx sigma Gamma)
         (subst_term sigma t ~[eps] subst_term sigma s)
   | D_Cut : forall X Gamma Gamma' phi,
-      (forall psi, List.In psi Gamma' -> @derives sig S X Gamma psi) ->
-      @derives sig S X Gamma' phi ->
-      @derives sig S X Gamma phi
+      (forall psi, List.In psi Gamma' -> @derives sig U X Gamma psi) ->
+      @derives sig U X Gamma' phi ->
+      @derives sig U X Gamma phi
   | D_Assumpt : forall X Gamma phi,
       List.In phi Gamma ->
-      @derives sig S X Gamma phi
+      @derives sig U X Gamma phi
   | D_Axiom : forall X Gamma phi,
-      S X Gamma phi -> @derives sig S X Gamma phi.
+      U X Gamma phi -> @derives sig U X Gamma phi.
 
-Arguments D_Refl {sig S X Gamma} t.
-Arguments D_Symm {sig S X Gamma t s eps} _ _.
-Arguments D_Triang {sig S X Gamma t s u eps eps'} _ _ _ _.
-Arguments D_NExp {sig S X Gamma f ts ss eps} _ _.
-Arguments D_Subst {sig S X Y Gamma t s eps} sigma _.
-Arguments D_Axiom {sig S X Gamma phi} _.
+Arguments D_Refl {sig U X Gamma} t.
+Arguments D_Symm {sig U X Gamma t s eps} _ _.
+Arguments D_Triang {sig U X Gamma t s u eps eps'} _ _ _ _.
+Arguments D_NExp {sig U X Gamma f ts ss eps} _ _.
+Arguments D_Subst {sig U X Y Gamma t s eps} sigma _.
+Arguments D_Axiom {sig U X Gamma phi} _.
 
-Lemma subst_term_nexp {sig X Y} (S : axiom_scheme sig)
+Lemma subst_term_nexp {sig X Y} (U : axiom_scheme sig)
     (eps : rat) (sigma tau : X -> term sig Y) (t : term sig X) :
   Qnn eps ->
-  (forall x, @derives sig S Y [::] (sigma x ~[eps] tau x)) ->
-  @derives sig S Y [::] (subst_term sigma t ~[eps] subst_term tau t).
+  (forall x, @derives sig U Y [::] (sigma x ~[eps] tau x)) ->
+  @derives sig U Y [::] (subst_term sigma t ~[eps] subst_term tau t).
 Proof.
   move=> Heps Hvars.
   elim: t => [x | f args IH] //=.
   apply: D_NExp; first exact Heps.
   move=> i.
   exact: IH.
+Qed.
+
+(* ============================================================
+   The Induced Pseudometric
+   ============================================================ *)
+
+Definition d_U {R : realType} {sig X} (U : axiom_scheme sig)
+    (s t : term sig X) : \bar R :=
+  extended_infimum (@nnrat_embed R) (
+    fun eps => derives U [::] (s ~[nnrat_val eps] t)
+  ).
+
+Definition gamma_U {R : realType} {sig X} (U : axiom_scheme sig)
+    (s t : term sig X) : \bar R :=
+  extended_infimum (@nnrat_embed R) (
+    fun eps => forall Gamma, derives U Gamma (s ~[nnrat_val eps] t)
+  ).
+
+Definition delta_U {R : realType} {sig X} (U : axiom_scheme sig)
+    (s t : term sig X) : \bar R :=
+  extended_infimum (@nnrat_embed R) (
+    fun eps => exists Gamma, derives U Gamma (s ~[nnrat_val eps] t)
+  ).
+
+Lemma delta_U_context_witness {sig X} (U : axiom_scheme sig)
+    (s t : term sig X) (eps : nnrat) :
+  exists Gamma, derives U Gamma (s ~[nnrat_val eps] t).
+Proof.
+  exists [:: s ~[nnrat_val eps] t].
+  apply: D_Assumpt.
+  by left.
+Qed.
+
+Proposition delta_U_zero {R : realType} {sig X}
+    (U : axiom_scheme sig) (s t : term sig X) :
+  @delta_U R sig X U s t = 0.
+Proof.
+  apply: Order.POrderTheory.le_anti.
+  rewrite /delta_U /extended_infimum.
+  apply/andP; split.
+  - apply: ge_ereal_inf.
+    exists (0%:E : \bar R); [ | apply lexx].
+    exists (0 : R)%R; [ | by []].
+    exists (exist _ (0 : rat) Qnn_zero).
+    split.
+    + apply: delta_U_context_witness.
+    + rewrite /nnrat_embed /=.
+      symmetry.
+      apply: (ratr_nat R 0).
+  - rewrite /delta_U /extended_infimum.
+    have Hlb :
+        (0%R <= ereal_inf
+          (EFin @` bound_set (@nnrat_embed R)
+            (fun eps : nnrat =>
+              exists Gamma : ctx sig X,
+                derives U Gamma (s ~[nnrat_val eps] t))))%E.
+    { apply/ereal_infP => y Himg.
+      case: Himg => r Hb <-.
+      case: Hb => eps [_ Hr].
+      rewrite Hr.
+      apply: lee_tofin.
+      exact: nnrat_embed_ge0.
+    }
+    exact Hlb.
+Qed.
+
+Lemma derives_empty_cut {sig X} (U : axiom_scheme sig)
+    (Gamma : ctx sig X) phi :
+  derives U [::] phi -> derives U Gamma phi.
+Proof.
+  move=> H.
+  apply: (D_Cut (Gamma' := [::])).
+  - move=> psi Hpsi. inversion Hpsi.
+  - exact H.
+Qed.
+
+Proposition gamma_U_eq_d_U {R : realType} {sig X}
+    (U : axiom_scheme sig) (s t : term sig X) :
+  @gamma_U R sig X U s t = @d_U R sig X U s t.
+Proof.
+  rewrite /gamma_U /d_U /extended_infimum /bound_set.
+  congr ereal_inf.
+  apply/seteqP; split=> r.
+  - move=> H.
+    case: H => x Hbound Hfin.
+    move: Hbound => [eps [Hderive Hx]].
+    exists x.
+    + exists eps; split.
+      * exact: (Hderive [::]).
+      * exact Hx.
+    + exact Hfin.
+  - move=> H.
+    case: H => x Hbound Hfin.
+    move: Hbound => [eps [Hderive Hx]].
+    exists x.
+    + exists eps; split.
+      * move=> Gamma.
+        exact: derives_empty_cut Hderive.
+      * exact Hx.
+    + exact Hfin.
 Qed.
 
 (* ============================================================
