@@ -22,6 +22,9 @@ approval_mode = "approve"
 [mcp_servers.rocq.tools.rocq_compile]
 approval_mode = "approve"
 
+[mcp_servers.rocq.tools.rocq_check]
+approval_mode = "approve"
+
 [mcp_servers.local-rag]
 command = "npx"
 args = ["-y", "mcp-local-rag"]

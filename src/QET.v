@@ -280,6 +280,177 @@ Proof.
     + exact Hfin.
 Qed.
 
+Lemma d_U_refl {R : realType} {sig X}
+    (U : axiom_scheme sig) (s : term sig X) : 
+    @d_U R sig X U s s = 0.
+Proof.
+  apply: Order.POrderTheory.le_anti.
+  apply /andP; split.
+  - rewrite /d_U /extended_infimum.
+    apply: ge_ereal_inf.
+    exists (0%:E : \bar R); last exact: lexx.
+    exists (0 : R)%R; last by [].
+    exists (exist _ (0 : rat) Qnn_zero).
+    split.
+    + exact: D_Refl.
+    + rewrite /nnrat_embed /nnrat_val /=.
+      symmetry.
+      exact: (ratr_nat R 0).
+  - rewrite /d_U /extended_infimum.
+    apply/ereal_infP => y Himg.
+    case: Himg => r Hb <-.
+    case: Hb => eps [_ Hr].
+    rewrite Hr.
+    apply: lee_tofin.
+    exact: nnrat_embed_ge0.
+Qed.
+
+Lemma d_U_symm {R : realType} {sig X}
+    (U : axiom_scheme sig) (s t : term sig X) :
+    @d_U R sig X U s t = @d_U R sig X U t s.
+Proof.
+  rewrite /d_U /extended_infimum /bound_set.
+  congr ereal_inf.
+  apply/seteqP; split=> r.
+  - move=> H.
+    case: H => x Hbound Hfin.
+    move: Hbound => [eps [Hderive Hx]].
+    exists x.
+    + exists eps; split.
+      * apply: D_Symm; first exact: (svalP eps).
+        exact Hderive.
+      * exact Hx.
+    + exact Hfin.
+  - move=> H.
+    case: H => x Hbound Hfin.
+    move: Hbound => [eps [Hderive Hx]].
+    exists x.
+    + exists eps; split.
+      * apply: D_Symm; first exact: (svalP eps).
+        exact Hderive.
+      * exact Hx.
+    + exact Hfin.
+Qed.
+
+Lemma d_U_nonneg {R : realType} {sig X}
+    (U : axiom_scheme sig) (s t : term sig X) :
+  0 <= @d_U R sig X U s t.
+Proof.
+  rewrite /d_U /extended_infimum.
+  apply/ereal_infP => y Himg.
+  case: Himg => r Hb <-.
+  case: Hb => eps [_ Hr].
+  rewrite Hr.
+  apply: lee_tofin.
+  exact: nnrat_embed_ge0.
+Qed.
+
+Lemma d_U_le_derives {R : realType} {sig X}
+    (U : axiom_scheme sig) (s t : term sig X) (eps : rat) :
+  Qnn eps ->
+  derives U [::] (s ~[eps] t) ->
+  @d_U R sig X U s t <= (ratr eps : R)%:E.
+Proof.
+  move=> Heps Hderive.
+  rewrite /d_U /extended_infimum.
+  apply: ge_ereal_inf.
+  exists ((ratr eps : R)%:E : \bar R); last exact: lexx.
+  exists (ratr eps : R); last by [].
+  exists (exist _ eps Heps).
+  split; first exact Hderive.
+  rewrite /nnrat_embed /nnrat_val /=.
+  reflexivity.
+Qed.
+
+Lemma ene_neq_ninfty {R : realType} (x : \bar R) :
+  (0%:E <= x)%E -> x != -oo%E.
+Proof.
+  move=> Hx.
+  rewrite -ltNye.
+  exact: (lt_le_trans (ltNyr (0 : R)) Hx).
+Qed.
+
+Lemma ene_nonneg_fin_or_pinfty {R : realType} (x : \bar R) :
+  (0%:E <= x)%E -> x \is a fin_num \/ x = +oo%E.
+Proof.
+  move=> Hx.
+  case Hfin: (x \is a fin_num); first by left.
+  right.
+  move/fin_numPn: Hfin => [HxN|HxP]; last exact HxP.
+  exfalso.
+  move: Hx.
+  by rewrite HxN.
+Qed.
+
+Lemma adde_eps_split {R : realType} (A B : \bar R) (e : R) :
+  A \is a fin_num -> B \is a fin_num ->
+  (A + (e / 2)%:E + (B + (e / 2)%:E) = A + B + e%:E)%E.
+Proof.
+  move=> Afin Bfin.
+  rewrite -[A]fineK// -[B]fineK//.
+  rewrite -!EFinD /=.
+  have -> :
+      (fine A + e / 2 + (fine B + e / 2) = fine A + fine B + e)%R.
+  { by rewrite addrACA -splitr. }
+  reflexivity.
+Qed.
+
+Lemma d_U_tri_bound {R : realType} {sig X}
+    (U : axiom_scheme sig) (s t u : term sig X) (eps eps' : rat) :
+  Qnn eps ->
+  Qnn eps' ->
+  derives U [::] (s ~[eps] t) ->
+  derives U [::] (t ~[eps'] u) ->
+  @d_U R sig X U s u <= (ratr eps : R)%:E + (ratr eps' : R)%:E.
+Proof.
+  move=> Heps Heps' Hst Htu.
+  rewrite -EFinD -rmorphD.
+  apply: d_U_le_derives.
+  - exact: Qnn_add.
+  - exact: (D_Triang Heps Heps' Hst Htu).
+Qed.
+
+Lemma d_U_tri {R : realType} {sig X}
+    (U : axiom_scheme sig) (s t u : term sig X) :
+  @d_U R sig X U s u <= @d_U R sig X U s t + @d_U R sig X U t u.
+Proof.
+  set A := @d_U R sig X U s t.
+  set B := @d_U R sig X U t u.
+  have A0 : (0%:E <= A)%E by rewrite /A; exact: d_U_nonneg.
+  have B0 : (0%:E <= B)%E by rewrite /B; exact: d_U_nonneg.
+  have [Afin|Aoo] := ene_nonneg_fin_or_pinfty A0.
+  - have [Bfin|Boo] := ene_nonneg_fin_or_pinfty B0.
+    + apply/lee_addgt0Pr => e e0.
+      have e2pos : (0 < e / 2)%R by rewrite divr_gt0// ltr0n.
+      have [x HxS Hxlt] := lb_ereal_inf_adherent e2pos Afin.
+      have [y HyS Hylt] := lb_ereal_inf_adherent e2pos Bfin.
+      rewrite /A /d_U /extended_infimum /bound_set in HxS Hxlt.
+      rewrite /B /d_U /extended_infimum /bound_set in HyS Hylt.
+      case: HxS Hxlt => rx Hrx <- Hxlt.
+      case: Hrx => eps [Hst Hrx].
+      rewrite Hrx /nnrat_embed /nnrat_val in Hxlt.
+      case: HyS Hylt => ry Hry <- Hylt.
+      case: Hry => eps' [Htu Hry].
+      rewrite Hry /nnrat_embed /nnrat_val in Hylt.
+      apply: (le_trans (@d_U_tri_bound R sig X U s t u
+        (nnrat_val eps) (nnrat_val eps')
+        (svalP eps) (svalP eps') Hst Htu)).
+      have Hsumlt :
+        ((ratr (nnrat_val eps) : R)%:E +
+         (ratr (nnrat_val eps') : R)%:E <
+         (A + (e / 2)%:E) + (B + (e / 2)%:E))%E.
+      { apply: lte_leD; last exact: ltW Hylt.
+        - by [].
+        - exact Hxlt. }
+      apply: ltW.
+      apply: (lt_le_trans Hsumlt).
+      by rewrite -/A -/B adde_eps_split//.
+    + have Ane : A != -oo%E by exact: ene_neq_ninfty A0.
+      by rewrite Boo addey// leey.
+  - have Bne : B != -oo%E by exact: ene_neq_ninfty B0.
+    by rewrite Aoo addye// leey.
+Qed.
+
 (* ============================================================
    Ordinary Lawvere category of a signature
    ============================================================ *)
