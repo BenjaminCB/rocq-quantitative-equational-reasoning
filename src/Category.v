@@ -149,3 +149,63 @@ Proof.
     apply Metric_hom_ext => x.
     reflexivity.
 Defined.
+
+Definition prod_metric_space {R : realType} (M N : ext_metric_space R) :
+    ext_metric_space R.
+Proof.
+  refine {|
+    carrier := carrier M * carrier N;
+    dist := fun p q => maxe (dist p.1 q.1) (dist p.2 q.2);
+  |}.
+  - move => a b. 
+    rewrite /maxe.
+    case (dist a.1 b.1 < dist a.2 b.2); apply dist_ge0.
+  - move => a.
+    rewrite /maxe !dist_refl if_same //=.
+  - move => [a1 a2] [b1 b2] H.
+    have Ha : dist a1 b1 = 0.
+      have h1 : dist a1 b1 <= 0%R by rewrite -H le_max lexx.
+      have h2 : 0%R <= dist a1 b1 := dist_ge0 a1 b1.
+      by apply/eqP; rewrite eq_le h2 h1.
+    have Hb : dist a2 b2 = 0.
+      have h1 : dist a2 b2 <= 0%R by rewrite -H le_max lexx orbT.
+      have h2 : 0%R <= dist a2 b2 := dist_ge0 a2 b2.
+      by apply/eqP; rewrite eq_le h2 h1.
+    have E1 : a1 = b1 by exact: dist_eq0 a1 b1 Ha.
+    have E2 : a2 = b2 by exact: dist_eq0 a2 b2 Hb.
+    by subst b1; subst b2.
+  - move => [a1 a2] [b1 b2].
+    simpl.
+    by rewrite (dist_symm a1 b1) (dist_symm a2 b2) maxC.
+  - move => [a1 a2] [b1 b2] [c1 c2].
+    simpl.
+    apply: (le_trans (le_max2 (dist_tri a1 b1 c1) (dist_tri a2 b2 c2))).
+    rewrite ge_max.
+    apply/andP; split; apply: leeD; rewrite le_max ?lexx ?orbT //.
+Defined.
+
+Definition unit_ext_metric_space {R : realType} : ext_metric_space R.
+Proof.
+  refine {|
+    carrier := unit;
+    dist := fun _ _ => 0%:E;
+  |}.
+  - by [].
+  - by [].
+  - move => a b H.
+    case a; case b.
+    by [].
+  - by [].
+  - by move=> _ _ _; rewrite add0e.
+Defined.
+
+Definition MetMonoidal (R : realType) : MonoidalCategory.
+Proof.
+  refine {|
+    mon_cat := Met R;
+    t_obj := fun M N => prod_ext_metric_space R (obj M) (obj N);
+    t_hom := fun A B C D f g => (* product of Metric_hom *);
+    t_unit := unit_ext_metric_space R;
+    (* coherence isomorphisms: associator, left/right unitors *);
+  |}.
+Defined.
