@@ -150,7 +150,7 @@ Proof.
     reflexivity.
 Defined.
 
-Definition prod_metric_space {R : realType} (M N : ext_metric_space R) :
+Definition met_t_obj {R : realType} (M N : ext_metric_space R) :
     ext_metric_space R.
 Proof.
   refine {|
@@ -184,7 +184,25 @@ Proof.
     apply/andP; split; apply: leeD; rewrite le_max ?lexx ?orbT //.
 Defined.
 
-Definition unit_ext_metric_space {R : realType} : ext_metric_space R.
+Definition met_t_hom {R : realType} {A B C D : ext_metric_space R}
+    (f : Metric_hom A C) (g : Metric_hom B D) :
+    Metric_hom (met_t_obj A B) (met_t_obj C D).
+Proof.
+  refine (@Build_Metric_hom R (met_t_obj A B) (met_t_obj C D)
+    (fun xy : carrier (met_t_obj A B) =>
+      (metric_hom_fun f xy.1, metric_hom_fun g xy.2)) _).
+  move => [x y] [x' y'].
+  rewrite /dist //= /maxe.
+  case: ifP => H1; case: ifP => H2.
+  - exact: metric_hom_nexp g y y'.
+  - have Hyx : dist y y' <= dist x x' by rewrite leNgt H2.
+    exact: le_trans (metric_hom_nexp g y y') Hyx.
+  - apply ltW in H2.
+    exact: le_trans (metric_hom_nexp f x x') H2.
+  - exact: metric_hom_nexp f x x'.
+Defined.
+
+Definition met_t_unit {R : realType} : ext_metric_space R.
 Proof.
   refine {|
     carrier := unit;
@@ -199,13 +217,51 @@ Proof.
   - by move=> _ _ _; rewrite add0e.
 Defined.
 
-Definition MetMonoidal (R : realType) : MonoidalCategory.
+Definition met_t_assoc {R : realType} (A B C : ext_metric_space R) :
+    Metric_hom (met_t_obj (met_t_obj A B) C)
+               (met_t_obj A (met_t_obj B C)).
 Proof.
-  refine {|
-    mon_cat := Met R;
-    t_obj := fun M N => prod_ext_metric_space R (obj M) (obj N);
-    t_hom := fun A B C D f g => (* product of Metric_hom *);
-    t_unit := unit_ext_metric_space R;
-    (* coherence isomorphisms: associator, left/right unitors *);
-  |}.
+  refine (@Build_Metric_hom R
+    (met_t_obj (met_t_obj A B) C)
+    (met_t_obj A (met_t_obj B C))
+    (fun xyz : carrier (met_t_obj (met_t_obj A B) C) =>
+      (xyz.1.1, (xyz.1.2, xyz.2))) _).
+  move => [[x y] z] [[x' y'] z'] //=.
+  by rewrite maxA.
+Defined.
+
+Definition met_t_assoc_inv {R : realType} (A B C : ext_metric_space R) :
+    Metric_hom (met_t_obj A (met_t_obj B C))
+               (met_t_obj (met_t_obj A B) C).
+Proof.
+  refine (@Build_Metric_hom R
+    (met_t_obj A (met_t_obj B C))
+    (met_t_obj (met_t_obj A B) C)
+    (fun xyz : carrier (met_t_obj A (met_t_obj B C)) =>
+      ((xyz.1, xyz.2.1), xyz.2.2)) _).
+  move => [x [y z]] [x' [y' z']] //=.
+  by rewrite maxA.
+Defined.
+
+Definition met_t_left_unitor {R : realType} (A : ext_metric_space R) :
+    Metric_hom (met_t_obj met_t_unit A) A.
+Proof.
+  refine (@Build_Metric_hom R (met_t_obj met_t_unit A) A
+    (fun ux : carrier (met_t_obj met_t_unit A) => ux.2) _).
+  move => [u a] [u' b] //=.
+  rewrite /maxe.
+  case: ifP => H; first by [].
+  have H' : dist a b <= 0 by rewrite leNgt H.
+  exact: H'.
+Defined.
+
+Definition met_t_left_unitor_inv {R : realType} (A : ext_metric_space R) :
+    Metric_hom A (met_t_obj met_t_unit A).
+Proof.
+  refine (@Build_Metric_hom R A (met_t_obj met_t_unit A)
+    (fun x : carrier A => (tt, x)) _).
+  move => a b.
+  rewrite {1}/dist //= /maxe.
+  case: ifP => H; first by [].
+  exact: dist_ge0.
 Defined.
