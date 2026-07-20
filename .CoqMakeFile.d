@@ -1,4 +1,10 @@
-src/Metric.vo src/Metric.glob src/Metric.v.beautified src/Metric.required_vo: src/Metric.v /nix/store/vbiqsnlhpiil4cys61bxxdg6yajfgc77-rocq-9.1.1/lib/rocq-runtime/rocqworker
-src/Metric.vos src/Metric.vok src/Metric.required_vos: src/Metric.v /nix/store/vbiqsnlhpiil4cys61bxxdg6yajfgc77-rocq-9.1.1/lib/rocq-runtime/rocqworker
-src/QET.vo src/QET.glob src/QET.v.beautified src/QET.required_vo: src/QET.v src/Metric.vo /nix/store/vbiqsnlhpiil4cys61bxxdg6yajfgc77-rocq-9.1.1/lib/rocq-runtime/rocqworker
-src/QET.vos src/QET.vok src/QET.required_vos: src/QET.v src/Metric.vos /nix/store/vbiqsnlhpiil4cys61bxxdg6yajfgc77-rocq-9.1.1/lib/rocq-runtime/rocqworker
+src/Metric.vo src/Metric.glob src/Metric.v.beautified src/Metric.required_vo: src/Metric.v /nix/store/2fppqs1ncn6a4q77vw37vgx39xylb3v3-rocq-9.1.1/lib/rocq-runtime/rocqworker
+src/Metric.vos src/Metric.vok src/Metric.required_vos: src/Metric.v /nix/store/2fppqs1ncn6a4q77vw37vgx39xylb3v3-rocq-9.1.1/lib/rocq-runtime/rocqworker
+src/Category.vo src/Category.glob src/Category.v.beautified src/Category.required_vo: src/Category.v src/Metric.vo /nix/store/2fppqs1ncn6a4q77vw37vgx39xylb3v3-rocq-9.1.1/lib/rocq-runtime/rocqworker
+src/Category.vos src/Category.vok src/Category.required_vos: src/Category.v src/Metric.vos /nix/store/2fppqs1ncn6a4q77vw37vgx39xylb3v3-rocq-9.1.1/lib/rocq-runtime/rocqworker
+src/QET.vo src/QET.glob src/QET.v.beautified src/QET.required_vo: src/QET.v src/Category.vo src/Metric.vo /nix/store/2fppqs1ncn6a4q77vw37vgx39xylb3v3-rocq-9.1.1/lib/rocq-runtime/rocqworker
+src/QET.vos src/QET.vok src/QET.required_vos: src/QET.v src/Category.vos src/Metric.vos /nix/store/2fppqs1ncn6a4q77vw37vgx39xylb3v3-rocq-9.1.1/lib/rocq-runtime/rocqworker
+src/MetricLawvere.vo src/MetricLawvere.glob src/MetricLawvere.v.beautified src/MetricLawvere.required_vo: src/MetricLawvere.v src/Category.vo src/Metric.vo src/QET.vo /nix/store/2fppqs1ncn6a4q77vw37vgx39xylb3v3-rocq-9.1.1/lib/rocq-runtime/rocqworker
+src/MetricLawvere.vos src/MetricLawvere.vok src/MetricLawvere.required_vos: src/MetricLawvere.v src/Category.vos src/Metric.vos src/QET.vos /nix/store/2fppqs1ncn6a4q77vw37vgx39xylb3v3-rocq-9.1.1/lib/rocq-runtime/rocqworker
+src/LeftInvariantBarycentricAlgebra.vo src/LeftInvariantBarycentricAlgebra.glob src/LeftInvariantBarycentricAlgebra.v.beautified src/LeftInvariantBarycentricAlgebra.required_vo: src/LeftInvariantBarycentricAlgebra.v src/Category.vo src/MetricLawvere.vo src/QET.vo /nix/store/2fppqs1ncn6a4q77vw37vgx39xylb3v3-rocq-9.1.1/lib/rocq-runtime/rocqworker
+src/LeftInvariantBarycentricAlgebra.vos src/LeftInvariantBarycentricAlgebra.vok src/LeftInvariantBarycentricAlgebra.required_vos: src/LeftInvariantBarycentricAlgebra.v src/Category.vos src/MetricLawvere.vos src/QET.vos /nix/store/2fppqs1ncn6a4q77vw37vgx39xylb3v3-rocq-9.1.1/lib/rocq-runtime/rocqworker

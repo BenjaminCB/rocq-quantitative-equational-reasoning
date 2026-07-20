@@ -6,7 +6,7 @@
 From mathcomp Require Import all_ssreflect_compat all_algebra.
 From mathcomp Require Import all_classical reals ereal.
 
-From Template Require Import QET Category MetricLawvere.
+From Template Require Import QET Category Metric.
 
 Set Implicit Arguments.
 Unset Strict Implicit.
@@ -15,6 +15,7 @@ Unset Printing Implicit Defensive.
 Import Order.TTheory GRing.Theory Num.Theory.
 
 Local Open Scope ring_scope.
+Local Open Scope classical_set_scope.
 
 Definition unit_interval (e : rat) : Prop :=
   (0 <= e <= 1)%R.
@@ -77,8 +78,47 @@ Inductive LIB_rule {X : Type} : ctx bary_sig X -> qeq bary_sig X -> Prop :=
       LIB_rule [::]
         (Var x' <+ e +> Var x ~[eps] Var x'' <+ e +> Var x).
 
+Definition LIB_d {R : realType} {n m : nat}
+    (f g : lawvere_op bary_sig n m) : \bar R :=
+  ereal_inf [set r : \bar R |
+    (0%:E <= r)%E /\
+    forall i : 'I_m, (d_U (fun X => @LIB_rule X) (f i) (g i) <= r)%E].
+
+Definition LIB_zero_equiv {R : realType} {n m : nat}
+    (f g : lawvere_op bary_sig n m) : Prop :=
+  @LIB_d R n m f g = 0.
+
+Definition LIB_hom_dist {R : realType} {n m : nat}
+    (f g : lawvere_op bary_sig n m) : \bar R :=
+  @LIB_d R n m f g.
+
 Definition LIB_QLT : QuantitativeLawvereTheory :=
   {| qlt_sig := bary_sig; qlt_rule := fun X => @LIB_rule X |}.
+
+Definition LIB_hom_metric_space (R : realType) (n m : nat) : ext_metric_space R.
+Proof.
+  refine {|
+    carrier := lawvere_op bary_sig n m;
+    dist := @LIB_hom_dist R n m
+  |}.
+  - (* dist_ge0:
+       The least upper bound is nonnegative because all candidates in
+       LIB_d's upper-bound set are required to be nonnegative. *)
+  - (* dist_refl:
+       Use d_U_refl componentwise, then show the least nonnegative upper
+       bound of the constantly-zero family is zero. *)
+  - (* dist_eq0:
+       This is the quotient step from the paper. On the raw lawvere_op
+       carrier this obligation is too strong; it should become true after
+       quotienting by LIB_zero_equiv. *)
+  - (* dist_symm:
+       Use d_U_symm componentwise and extensionality of the upper-bound
+       sets defining LIB_d. *)
+  - (* dist_tri:
+       Use d_U_tri componentwise. If r bounds f/g and s bounds g/h,
+       then r + s bounds f/h, so the supremum-style LIB_d satisfies
+       the triangle inequality. *)
+Defined.
 
 Definition LIB_enriched_category : EnrichedCategory QSpaceMonoidal :=
   EnrichedLawvereCategory LIB_QLT.
