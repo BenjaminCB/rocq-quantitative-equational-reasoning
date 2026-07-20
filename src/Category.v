@@ -265,3 +265,42 @@ Proof.
   case: ifP => H; first by [].
   exact: dist_ge0.
 Defined.
+
+Definition met_t_right_unitor {R : realType} (A : ext_metric_space R) :
+    Metric_hom (met_t_obj A met_t_unit) A.
+Proof.
+  refine (@Build_Metric_hom R (met_t_obj A met_t_unit) A
+    (fun xu : carrier (met_t_obj A met_t_unit) => xu.1) _).
+  move => [a u] [b u'] //=.
+  rewrite /maxe.
+  case: ifP => H; last by [].
+  move /ltW in H.
+  exact: H.
+Defined.
+
+Definition met_t_right_unitor_inv {R : realType} (A : ext_metric_space R) :
+    Metric_hom A (met_t_obj A met_t_unit).
+Proof.
+  refine (@Build_Metric_hom R A (met_t_obj A met_t_unit)
+    (fun x : carrier A => (x, tt)) _).
+  move => a b.
+  rewrite {1}/dist //= /maxe.
+  case: ifP => H; last by [].
+  exact: dist_ge0.
+Defined.
+
+Definition MetMonoidal {R : realType} : MonoidalCategory.
+Proof.
+  refine {|
+    mon_cat := Met R;
+    t_obj := met_t_obj;
+    t_hom := fun _ _ _ _ => met_t_hom;
+    t_unit := met_t_unit;
+    t_assoc := met_t_assoc;
+    t_assoc_inv := met_t_assoc_inv;
+    t_left_unitor := met_t_left_unitor;
+    t_left_unitor_inv := met_t_left_unitor_inv;
+    t_right_unitor := met_t_right_unitor;
+    t_right_unitor_inv := met_t_right_unitor_inv
+  |}.
+Defined.
