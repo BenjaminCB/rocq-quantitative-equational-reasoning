@@ -92,8 +92,10 @@ Definition LIB_hom_dist {R : realType} {n m : nat}
     (f g : lawvere_op bary_sig n m) : \bar R :=
   @LIB_d R n m f g.
 
-Definition LIB_QLT : QuantitativeLawvereTheory :=
-  {| qlt_sig := bary_sig; qlt_rule := fun X => @LIB_rule X |}.
+(*
+Previous raw-carrier attempt, kept here as proof progress/reference.
+This cannot finish as an ext_metric_space because dist_eq0 is too strong
+before quotienting by LIB_zero_equiv.
 
 Definition LIB_hom_metric_space (R : realType) (n m : nat) : ext_metric_space R.
 Proof.
@@ -101,13 +103,32 @@ Proof.
     carrier := lawvere_op bary_sig n m;
     dist := @LIB_hom_dist R n m
   |}.
-  - (* dist_ge0:
-       The least upper bound is nonnegative because all candidates in
-       LIB_d's upper-bound set are required to be nonnegative. *)
-  - (* dist_refl:
-       Use d_U_refl componentwise, then show the least nonnegative upper
-       bound of the constantly-zero family is zero. *)
-  - (* dist_eq0:
+  - move => a b.
+    rewrite /LIB_hom_dist /LIB_d.
+    apply/ereal_infP => y Hy.
+    by case: Hy => Hy0 _.
+  - move => a.
+    rewrite /LIB_hom_dist /LIB_d.
+    apply: Order.POrderTheory.le_anti; apply /andP; split.
+    + apply: ge_ereal_inf; exists 0; last by apply lexx.
+      rewrite /mkset; split; first by apply lexx.
+      move => i.
+      rewrite /d_U /extended_infimum.
+      apply: ge_ereal_inf; exists 0; last by apply lexx.
+      rewrite /bound_set /mkset.
+      exists (0 : R)%R; last by [].
+      exists (exist _ (0 : rat) Qnn_zero).
+      split.
+      * exact: D_Refl.
+      * rewrite /nnrat_embed /nnrat_val /=.
+        symmetry.
+        exact: (ratr_nat R 0).
+    + apply/ereal_infP => y Hy.
+      by case: Hy => Hy0 _.
+  - move => a b H.
+    rewrite /LIB_hom_dist /LIB_d in H.
+    apply: Order.POrderTheory.le_anti in .
+    (* dist_eq0:
        This is the quotient step from the paper. On the raw lawvere_op
        carrier this obligation is too strong; it should become true after
        quotienting by LIB_zero_equiv. *)
@@ -119,3 +140,27 @@ Proof.
        then r + s bounds f/h, so the supremum-style LIB_d satisfies
        the triangle inequality. *)
 Defined.
+*)
+
+Record LIB_hom_metric_quotient (R : realType) (n m : nat) := {
+  LIB_hom_qspace :> ext_metric_space R;
+  LIB_hom_qclass :
+    lawvere_op bary_sig n m -> carrier LIB_hom_qspace;
+  LIB_hom_qclass_surj :
+    forall x : carrier LIB_hom_qspace,
+      exists f : lawvere_op bary_sig n m, LIB_hom_qclass f = x;
+  LIB_hom_qdist :
+    forall f g : lawvere_op bary_sig n m,
+      dist (LIB_hom_qclass f) (LIB_hom_qclass g) =
+      @LIB_hom_dist R n m f g;
+  LIB_hom_qzero_exact :
+    forall f g : lawvere_op bary_sig n m,
+      @LIB_zero_equiv R n m f g <-> LIB_hom_qclass f = LIB_hom_qclass g;
+}.
+
+Definition LIB_metric_quotient (R : realType) : Type :=
+  forall n m : nat, LIB_hom_metric_quotient R n m.
+
+Definition LIB_hom_metric_space {R : realType}
+    (Q : LIB_metric_quotient R) (n m : nat) : ext_metric_space R :=
+  LIB_hom_qspace (Q n m).
