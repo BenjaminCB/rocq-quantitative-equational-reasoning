@@ -73,7 +73,18 @@ Record EnrichedCategory (V : MonoidalCategory) := {
     hom (t_unit V) (e_hom X X);
   e_comp : forall X Y Z,
     hom (t_obj (e_hom Y Z) (e_hom X Y))
-        (e_hom X Z)
+        (e_hom X Z);
+  e_comp_assoc : forall W X Y Z,
+    e_comp X Y W <| t_hom (e_comp Y Z W) (id (e_hom X Y)) =
+    e_comp X Z W
+      <| t_hom (id (e_hom Z W)) (e_comp X Y Z)
+      <| t_assoc (e_hom Z W) (e_hom Y Z) (e_hom X Y);
+  e_comp_id_l : forall X Y,
+    e_comp X Y Y <| t_hom (e_id Y) (id (e_hom X Y)) =
+    t_left_unitor (e_hom X Y);
+  e_comp_id_r : forall X Y,
+    e_comp X X Y <| t_hom (id (e_hom X Y)) (e_id X) =
+    t_right_unitor (e_hom X Y)
 }.
 
 Record EnrichedFunctor {V : MonoidalCategory}
