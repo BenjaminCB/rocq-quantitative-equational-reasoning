@@ -490,18 +490,6 @@ Defined.
     Qoutient algebra
    ============================================================ *)
 
-Definition qlt_hom_d {R : realType} {sig : signature}
-    (U : axiom_scheme sig) {n m : nat}
-    (f g : lawvere_op sig n m) : \bar R :=
-  ereal_inf [set r : \bar R |
-    (0%:E <= r)%E /\
-    forall i : 'I_m, (@d_U R sig 'I_n U (f i) (g i) <= r)%E].
-
-Definition qlt_hom_zero_equiv {R : realType} {sig : signature}
-    (U : axiom_scheme sig) {n m : nat}
-    (f g : lawvere_op sig n m) : Prop :=
-  @qlt_hom_d R sig U n m f g = 0.
-
 Definition term_equiv {R : realType} {sig X}
     (U : axiom_scheme sig) (s t : term sig X) : Prop :=
   @d_U R sig X U s t = 0.
@@ -555,4 +543,90 @@ Proof.
     rewrite (ratr_nat R 0) in Hle.
     exact Hle.
   - exact: d_U_nonneg.
+Qed.
+
+Lemma d_U_term_equiv_left {R : realType} {sig X}
+    (U : axiom_scheme sig) (s s' t : term sig X) :
+  @term_equiv R sig X U s s' ->
+  @d_U R sig X U s t = @d_U R sig X U s' t.
+Proof.
+  move=> Hss'.
+  apply: Order.POrderTheory.le_anti; apply/andP; split.
+  - have Htri := @d_U_tri R sig X U s s' t.
+    by rewrite Hss' add0e in Htri.
+  - have Htri := @d_U_tri R sig X U s' s t.
+    rewrite (@d_U_symm R sig X U s' s) Hss' add0e in Htri.
+    exact Htri.
+Qed.
+
+Lemma d_U_term_equiv_right {R : realType} {sig X}
+    (U : axiom_scheme sig) (s t t' : term sig X) :
+  @term_equiv R sig X U t t' ->
+  @d_U R sig X U s t = @d_U R sig X U s t'.
+Proof.
+  move=> Htt'.
+  rewrite (@d_U_symm R sig X U s t).
+  rewrite (@d_U_term_equiv_left R sig X U t t' s Htt').
+  exact: (@d_U_symm R sig X U t' s).
+Qed.
+
+(* ============================================================
+    Symbol lifting to the quotient term algebra
+   ============================================================ *)
+
+Record TermQuotient (R : realType) (sig : signature) (X : Type)
+    (U : axiom_scheme sig) := {
+  tq_carrier : Type;
+  tq_class : term sig X -> tq_carrier;
+  tq_repr : tq_carrier -> term sig X;
+  tq_reprK : forall x : tq_carrier, tq_class (tq_repr x) = x;
+  tq_zero_exact :
+    forall s t : term sig X,
+      @term_equiv R sig X U s t <-> tq_class s = tq_class t;
+}.
+
+Definition symbol_lifting {R : realType} {sig X}
+    {U : axiom_scheme sig} (Q : @TermQuotient R sig X U)
+    (f : sym sig) (xs : 'I_(arity f) -> tq_carrier Q) :
+    tq_carrier Q :=
+  @tq_class R sig X U Q
+    (App f (fun i => @tq_repr R sig X U Q (xs i))).
+
+Lemma symbol_lifting_class {R : realType} {sig X}
+    {U : axiom_scheme sig} (Q : @TermQuotient R sig X U)
+    (f : sym sig) (xs : 'I_(arity f) -> term sig X) :
+  @symbol_lifting R sig X U Q f
+    (fun i => @tq_class R sig X U Q (xs i)) =
+  @tq_class R sig X U Q (App f xs).
+Proof.
+  apply/(proj1 (@tq_zero_exact R sig X U Q _ _)).
+  apply: term_equiv_congruence => i.
+  apply/(proj2 (@tq_zero_exact R sig X U Q _ _)).
+  exact: (@tq_reprK R sig X U Q (@tq_class R sig X U Q (xs i))).
+Qed.
+
+Definition term_d_tilde {R : realType} {sig X}
+    {U : axiom_scheme sig} (Q : @TermQuotient R sig X U)
+    (x y : tq_carrier Q) : \bar R :=
+  @d_U R sig X U
+    (@tq_repr R sig X U Q x) (@tq_repr R sig X U Q y).
+
+Lemma term_d_tilde_class {R : realType} {sig X}
+    {U : axiom_scheme sig} (Q : @TermQuotient R sig X U)
+    (s t : term sig X) :
+  @term_d_tilde R sig X U Q
+    (@tq_class R sig X U Q s) (@tq_class R sig X U Q t) =
+  @d_U R sig X U s t.
+Proof.
+  rewrite /term_d_tilde.
+  have Hs : @term_equiv R sig X U
+      (@tq_repr R sig X U Q (@tq_class R sig X U Q s)) s.
+  { apply/(proj2 (@tq_zero_exact R sig X U Q _ _)).
+    exact: (@tq_reprK R sig X U Q (@tq_class R sig X U Q s)). }
+  have Ht : @term_equiv R sig X U
+      (@tq_repr R sig X U Q (@tq_class R sig X U Q t)) t.
+  { apply/(proj2 (@tq_zero_exact R sig X U Q _ _)).
+    exact: (@tq_reprK R sig X U Q (@tq_class R sig X U Q t)). }
+  rewrite (@d_U_term_equiv_left R sig X U _ _ _ Hs).
+  exact: (@d_U_term_equiv_right R sig X U _ _ _ Ht).
 Qed.
