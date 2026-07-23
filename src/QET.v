@@ -485,3 +485,74 @@ Proof.
     apply functional_extensionality => i /=.
     exact: subst_term_var.
 Defined.
+
+(* ============================================================
+    Qoutient algebra
+   ============================================================ *)
+
+Definition qlt_hom_d {R : realType} {sig : signature}
+    (U : axiom_scheme sig) {n m : nat}
+    (f g : lawvere_op sig n m) : \bar R :=
+  ereal_inf [set r : \bar R |
+    (0%:E <= r)%E /\
+    forall i : 'I_m, (@d_U R sig 'I_n U (f i) (g i) <= r)%E].
+
+Definition qlt_hom_zero_equiv {R : realType} {sig : signature}
+    (U : axiom_scheme sig) {n m : nat}
+    (f g : lawvere_op sig n m) : Prop :=
+  @qlt_hom_d R sig U n m f g = 0.
+
+Definition term_equiv {R : realType} {sig X}
+    (U : axiom_scheme sig) (s t : term sig X) : Prop :=
+  @d_U R sig X U s t = 0.
+
+Lemma term_equiv_derives_pos {R : realType} {sig X}
+    (U : axiom_scheme sig) (s t : term sig X) (eps : rat) :
+  (0 < eps)%R ->
+  @term_equiv R sig X U s t ->
+  derives U [::] (s ~[eps] t).
+Proof.
+  move=> Heps Hst.
+  rewrite /term_equiv /d_U /extended_infimum in Hst.
+  have Reps_pos : (0 < (ratr eps : R))%R by rewrite ltr0q.
+  have Hfin : (ereal_inf
+      (EFin @` bound_set (@nnrat_embed R)
+        (fun eps0 : nnrat =>
+          derives U [::] (s ~[nnrat_val eps0] t))) \is a fin_num).
+  { by rewrite Hst fin_numE. }
+  have [x HxS Hxlt] := lb_ereal_inf_adherent Reps_pos Hfin.
+  rewrite Hst add0e in Hxlt.
+  rewrite /bound_set in HxS.
+  case: HxS Hxlt => rx Hrx <- Hxlt.
+  case: Hrx => eps0 [Hderive Hrx].
+  rewrite Hrx /nnrat_embed /nnrat_val in Hxlt.
+  have Hlt_rat : (nnrat_val eps0 < eps)%R.
+  { move: Hxlt; by rewrite lte_fin -(@ltr_rat R). }
+  have Hdelta : (0 < eps - nnrat_val eps0)%R by rewrite subr_gt0.
+  have -> : eps = (nnrat_val eps0 + (eps - nnrat_val eps0))%R.
+  { by rewrite addrC subrK. }
+  exact: (@D_Max sig U X [::] s t (nnrat_val eps0)
+    (eps - nnrat_val eps0)%R (svalP eps0) Hdelta Hderive).
+Qed.
+
+Lemma term_equiv_congruence {R : realType} {sig X}
+    (U : axiom_scheme sig) (f : sym sig) 
+    (xs ys : 'I_(arity f) -> term sig X):
+  (forall i : 'I_(arity f), @term_equiv R sig X U (xs i) (ys i)) ->
+  @term_equiv R sig X U (App f xs) (App f ys).
+Proof.
+  move=> H.
+  rewrite /term_equiv.
+  apply: Order.POrderTheory.le_anti; apply/andP; split.
+  - have Hderive0 : derives U [::] (App f xs ~[0] App f ys).
+    { apply: D_Arch; first exact: Qnn_zero.
+      move=> eps' Heps'.
+      apply: D_NExp; first exact: ltW Heps'.
+      move=> i.
+      exact: term_equiv_derives_pos Heps' (H i). }
+    have Hle := @d_U_le_derives R sig X U
+      (App f xs) (App f ys) 0 Qnn_zero Hderive0.
+    rewrite (ratr_nat R 0) in Hle.
+    exact Hle.
+  - exact: d_U_nonneg.
+Qed.

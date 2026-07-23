@@ -6,7 +6,7 @@
 From mathcomp Require Import all_ssreflect_compat all_algebra.
 From mathcomp Require Import all_classical reals ereal.
 
-From Template Require Import QET Category Metric.
+From Template Require Import QET Category Metric MetricLawvere.
 
 Set Implicit Arguments.
 Unset Strict Implicit.
@@ -80,9 +80,23 @@ Inductive LIB_rule {X : Type} : ctx bary_sig X -> qeq bary_sig X -> Prop :=
 
 Definition LIB_d {R : realType} {n m : nat}
     (f g : lawvere_op bary_sig n m) : \bar R :=
-  ereal_inf [set r : \bar R |
-    (0%:E <= r)%E /\
-    forall i : 'I_m, (d_U (fun X => @LIB_rule X) (f i) (g i) <= r)%E].
+  qlt_hom_d (fun X => @LIB_rule X) f g.
+
+Definition LIB_d_tilde {R : realType} {n m : nat}
+    (Q : @HomMetricQuotient R bary_sig (fun X => @LIB_rule X) n m)
+    (x y : carrier Q) : \bar R :=
+  @hom_d_tilde R bary_sig (fun X => @LIB_rule X) n m Q x y.
+
+Lemma LIB_d_tilde_class {R : realType} {n m : nat}
+    (Q : @HomMetricQuotient R bary_sig (fun X => @LIB_rule X) n m)
+    (f g : lawvere_op bary_sig n m) :
+  @LIB_d_tilde R n m Q
+    (@hmq_class R bary_sig (fun X => @LIB_rule X) n m Q f)
+    (@hmq_class R bary_sig (fun X => @LIB_rule X) n m Q g) =
+  @LIB_d R n m f g.
+Proof.
+  exact: (@hom_d_tilde_class R bary_sig (fun X => @LIB_rule X) n m Q f g).
+Qed.
 
 Definition LIB_zero_equiv {R : realType} {n m : nat}
     (f g : lawvere_op bary_sig n m) : Prop :=
@@ -158,9 +172,52 @@ Record LIB_hom_metric_quotient (R : realType) (n m : nat) := {
       @LIB_zero_equiv R n m f g <-> LIB_hom_qclass f = LIB_hom_qclass g;
 }.
 
-Definition LIB_metric_quotient (R : realType) : Type :=
-  forall n m : nat, LIB_hom_metric_quotient R n m.
+Definition LIB_hom_d_tilde {R : realType} {n m : nat}
+    (Q : LIB_hom_metric_quotient R n m)
+    (x y : carrier Q) : \bar R :=
+  dist x y.
+
+Lemma LIB_hom_d_tilde_class {R : realType} {n m : nat}
+    (Q : LIB_hom_metric_quotient R n m)
+    (f g : lawvere_op bary_sig n m) :
+  @LIB_hom_d_tilde R n m Q
+    (@LIB_hom_qclass R n m Q f) (@LIB_hom_qclass R n m Q g) =
+  @LIB_d R n m f g.
+Proof. exact: (@LIB_hom_qdist R n m Q f g). Qed.
+
+Record LIB_metric_quotient (R : realType) := {
+  LIB_mq_hom : forall n m : nat, LIB_hom_metric_quotient R n m;
+  LIB_mq_comp_wd :
+    forall n m k
+      (f f' : lawvere_op bary_sig n m)
+      (g g' : lawvere_op bary_sig m k),
+      @LIB_zero_equiv R n m f f' ->
+      @LIB_zero_equiv R m k g g' ->
+      @LIB_zero_equiv R n k
+        (lawvere_comp g f) (lawvere_comp g' f');
+  LIB_mq_comp_nexp_additive :
+    forall n m k
+      (f f' : lawvere_op bary_sig n m)
+      (g g' : lawvere_op bary_sig m k),
+      (@LIB_hom_dist R n k
+        (lawvere_comp g f) (lawvere_comp g' f') <=
+      @LIB_hom_dist R m k g g' + @LIB_hom_dist R n m f f')%E;
+}.
 
 Definition LIB_hom_metric_space {R : realType}
     (Q : LIB_metric_quotient R) (n m : nat) : ext_metric_space R :=
-  LIB_hom_qspace (Q n m).
+  LIB_hom_qspace (LIB_mq_hom Q n m).
+
+Definition LIB_metric_d_tilde {R : realType}
+    (Q : LIB_metric_quotient R) {n m : nat}
+    (x y : carrier (LIB_hom_metric_space Q n m)) : \bar R :=
+  dist x y.
+
+Lemma LIB_metric_d_tilde_class {R : realType}
+    (Q : LIB_metric_quotient R) {n m : nat}
+    (f g : lawvere_op bary_sig n m) :
+  @LIB_metric_d_tilde R Q n m
+    (@LIB_hom_qclass R n m (@LIB_mq_hom R Q n m) f)
+    (@LIB_hom_qclass R n m (@LIB_mq_hom R Q n m) g) =
+  @LIB_d R n m f g.
+Proof. exact: (@LIB_hom_qdist R n m (@LIB_mq_hom R Q n m) f g). Qed.
