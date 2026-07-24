@@ -605,6 +605,30 @@ Proof.
   exact: (@tq_reprK R sig X U Q (@tq_class R sig X U Q (xs i))).
 Qed.
 
+Lemma derives_zero_term_equiv {R : realType} {sig X}
+    (U : axiom_scheme sig) (s t : term sig X) :
+  derives U [::] (s ~[0] t) -> @term_equiv R sig X U s t.
+Proof.
+  move=> Hderive.
+  rewrite /term_equiv.
+  apply: Order.POrderTheory.le_anti; apply/andP; split.
+  - have Hle := @d_U_le_derives R sig X U s t 0 Qnn_zero Hderive.
+    rewrite (ratr_nat R 0) in Hle.
+    exact Hle.
+  - exact: d_U_nonneg.
+Qed.
+
+Lemma term_quotient_sound_zero_derives {R : realType} {sig X}
+    {U : axiom_scheme sig} (Q : @TermQuotient R sig X U)
+    (s t : term sig X) :
+  derives U [::] (s ~[0] t) ->
+  @tq_class R sig X U Q s = @tq_class R sig X U Q t.
+Proof.
+  move=> Hderive.
+  apply/(proj1 (@tq_zero_exact R sig X U Q s t)).
+  exact: (@derives_zero_term_equiv R sig X U s t Hderive).
+Qed.
+
 Definition term_d_tilde {R : realType} {sig X}
     {U : axiom_scheme sig} (Q : @TermQuotient R sig X U)
     (x y : tq_carrier Q) : \bar R :=
