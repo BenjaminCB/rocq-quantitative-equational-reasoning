@@ -5,8 +5,9 @@
 From Stdlib Require Import Logic.FunctionalExtensionality.
 From Stdlib Require Import Logic.ProofIrrelevance.
 From Stdlib Require Import Lists.List.
-From mathcomp Require Import all_ssreflect_compat all_algebra.
-From mathcomp Require Import all_classical reals ereal.
+From mathcomp Require Import ssreflect ssrfun ssrbool eqtype seq choice fintype.
+From mathcomp Require Import order ssralg ssrnum archimedean rat reals ereal.
+From mathcomp Require Import classical_sets.
 
 From Template Require Import Metric Category.
 

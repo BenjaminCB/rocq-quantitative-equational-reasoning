@@ -128,42 +128,46 @@
             hierarchy-builder
           ]);
 
-        vscode = pkgs.vscode-with-extensions.override {
-          vscode = pkgs.vscode;
-          vscodeExtensions = with pkgs.vscode-extensions; [
-            rocq-prover.vsrocq
-            vscodevim.vim
-          ];
+        coqLspExtension = pkgs.vscode-utils.buildVscodeMarketplaceExtension {
+          mktplcRef = {
+            name = "coq-lsp";
+            publisher = "ejgallego";
+            version = "0.2.4";
+            hash = "sha256-s2f2i3sNZ3EdCHDgkYPPiXDp25cViAZy+DpnDxfWaSo=";
+          };
         };
 
-        vsrocqtop = pkgs.writeShellApplication {
-          name = "vsrocqtop";
+        wasmWasiCoreExtension =
+          pkgs.vscode-utils.buildVscodeMarketplaceExtension
+            {
+              mktplcRef = {
+                name = "wasm-wasi-core";
+                publisher = "ms-vscode";
+                version = "1.0.2";
+                hash = "sha256-hrzPNPaG8LPNMJq/0uyOS8jfER1Q0CyFlwR42KmTz8g=";
+              };
+            };
 
-          runtimeInputs = [
-            rocqEnv
-            pkgs.rocqPackages.vsrocq-language-server
+        vscode = pkgs.vscode-with-extensions.override {
+          vscode = pkgs.vscode;
+          vscodeExtensions = [
+            wasmWasiCoreExtension
+            coqLspExtension
+            pkgs.vscode-extensions.vscodevim.vim
           ];
-
-          text = ''
-            export ROCQPATH="${rocqEnv}/lib/coq/9.1/user-contrib''${ROCQPATH:+:$ROCQPATH}"
-            export COQPATH="$ROCQPATH"
-            export OCAMLPATH="${rocqEnv}/lib/ocaml/4.14.4/site-lib''${OCAMLPATH:+:$OCAMLPATH}"
-            export CAML_LD_LIBRARY_PATH="${rocqEnv}/lib/ocaml/4.14.4/site-lib/stublibs''${CAML_LD_LIBRARY_PATH:+:$CAML_LD_LIBRARY_PATH}"
-            exec ${pkgs.rocqPackages.vsrocq-language-server}/bin/vsrocqtop "$@"
-          '';
         };
 
         settingsJson = builtins.toJSON {
-          "vsrocq.path" = "${vsrocqtop}/bin/vsrocqtop";
-          "vsrocq.args" = [
-            "-Q"
-            "src"
-            "Template"
-          ];
-          "vsrocq.completion.enable" = true;
-          "vsrocq.diagnostics.full" = false;
-          "vsrocq.proof.delegation" = "None";
-          "vsrocq.proof.mode" = 0;
+          "coq-lsp.path" = "${rocqEnv}/bin/coq-lsp";
+          "coq-lsp.args" = [];
+          "coq-lsp.check_only_on_request" = true;
+          "coq-lsp.check_on_scroll" = true;
+          "coq-lsp.completion.unicode.enabled" = "off";
+          "coq-lsp.eager_diagnostics" = true;
+          "coq-lsp.goal_after_tactic" = false;
+          "coq-lsp.show_coq_info_messages" = false;
+          "coq-lsp.show_goals_on" = 3;
+          "coq-lsp.trace.server" = "off";
         };
 
         rocq-watch = pkgs.writeShellScriptBin "rocq-watch" ''
@@ -247,8 +251,6 @@
             ];
 
           shellHook = ''
-                        export VSROCQTOP_PATH="${vsrocqtop}/bin/vsrocqtop"
-
                         mkdir -p .vscode
 
                         cat > .vscode/settings.json <<'JSON'

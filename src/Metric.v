@@ -9,8 +9,9 @@
    ============================================================ *)
 
 From HB Require Import structures.
-From mathcomp Require Import all_ssreflect_compat all_algebra finmap.
-From mathcomp Require Import all_classical reals ereal.
+From mathcomp Require Import ssreflect ssrbool choice fintype.
+From mathcomp Require Import order ssralg ssrnum archimedean finmap reals ereal.
+From mathcomp Require Import classical_sets.
 
 Set Implicit Arguments.
 Unset Strict Implicit.
