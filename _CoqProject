@@ -2,5 +2,4 @@
 src/Metric.v
 src/Category.v
 src/QET.v
-src/MetricLawvere.v
 src/LeftInvariantBarycentricAlgebra.v

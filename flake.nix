@@ -161,7 +161,9 @@
             "Template"
           ];
           "vsrocq.completion.enable" = true;
-          "vsrocq.diagnostics.full" = true;
+          "vsrocq.diagnostics.full" = false;
+          "vsrocq.proof.delegation" = "None";
+          "vsrocq.proof.mode" = 0;
         };
 
         rocq-watch = pkgs.writeShellScriptBin "rocq-watch" ''
