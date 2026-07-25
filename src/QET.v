@@ -654,3 +654,256 @@ Proof.
   rewrite (@d_U_term_equiv_left R sig X U _ _ _ Hs).
   exact: (@d_U_term_equiv_right R sig X U _ _ _ Ht).
 Qed.
+
+(* ============================================================
+   Metric quotient of the Lawvere theory
+
+   The hom distance is the supremum of the component term
+   distances.  The optional index contributes zero when the
+   codomain arity is empty.
+   ============================================================ *)
+
+Definition lawvere_hom_d {R : realType} {sig}
+    {n m : nat} (U : axiom_scheme sig)
+    (f g : lawvere_op sig n m) : \bar R :=
+  ereal_sup (range (fun oi : option 'I_m =>
+    match oi with
+    | Some i => @d_U R sig 'I_n U (f i) (g i)
+    | None => 0
+    end)).
+
+Lemma lawvere_hom_d_ubound {R : realType} {sig}
+    {n m : nat} (U : axiom_scheme sig)
+    (f g : lawvere_op sig n m) (oi : option 'I_m) :
+  (match oi with
+   | Some i => @d_U R sig 'I_n U (f i) (g i)
+   | None => 0
+   end) <= @lawvere_hom_d R sig n m U f g.
+Proof.
+  apply: ereal_sup_ubound.
+  by exists oi.
+Qed.
+
+Lemma lawvere_hom_d_nonneg {R : realType} {sig}
+    {n m : nat} (U : axiom_scheme sig)
+    (f g : lawvere_op sig n m) :
+  0 <= @lawvere_hom_d R sig n m U f g.
+Proof.
+  exact: (@lawvere_hom_d_ubound R sig n m U f g None).
+Qed.
+
+Record LawvereMetricQuotient (R : realType)
+    (sig : signature) (U : axiom_scheme sig) := {
+  lmq_hom : forall n m : nat, ext_metric_space R;
+  lmq_class : forall n m,
+    lawvere_op sig n m -> carrier (lmq_hom n m);
+  lmq_repr : forall n m,
+    carrier (lmq_hom n m) -> lawvere_op sig n m;
+  lmq_reprK : forall n m (x : carrier (lmq_hom n m)),
+    @lmq_class n m (@lmq_repr n m x) = x;
+  lmq_qdist : forall n m (f g : lawvere_op sig n m),
+    dist (@lmq_class n m f) (@lmq_class n m g) =
+    @lawvere_hom_d R sig n m U f g;
+  lmq_comp_nexp : forall n m k
+      (g g' : lawvere_op sig m k)
+      (f f' : lawvere_op sig n m),
+    (@lawvere_hom_d R sig n k U
+        (lawvere_comp g f) (lawvere_comp g' f') <=
+      @lawvere_hom_d R sig m k U g g' +
+      @lawvere_hom_d R sig n m U f f')%E
+}.
+
+Lemma lmq_class_eq_iff_zero {R : realType} {sig}
+    {U : axiom_scheme sig} (Q : @LawvereMetricQuotient R sig U)
+    {n m : nat} (f g : lawvere_op sig n m) :
+  @lmq_class R sig U Q n m f = @lmq_class R sig U Q n m g <->
+  @lawvere_hom_d R sig n m U f g = 0.
+Proof.
+  split.
+  - move=> H.
+    rewrite -(@lmq_qdist R sig U Q n m f g) H.
+    exact: dist_refl.
+  - move=> H.
+    apply: (@dist_eq0 R (@lmq_hom R sig U Q n m)).
+    by rewrite (@lmq_qdist R sig U Q n m f g).
+Qed.
+
+Definition quotient_lawvere_comp {R : realType} {sig}
+    {U : axiom_scheme sig} (Q : @LawvereMetricQuotient R sig U)
+    {n m k : nat}
+    (g : carrier (lmq_hom Q m k))
+    (f : carrier (lmq_hom Q n m)) :
+    carrier (lmq_hom Q n k) :=
+  @lmq_class R sig U Q n k
+    (lawvere_comp
+      (@lmq_repr R sig U Q m k g)
+      (@lmq_repr R sig U Q n m f)).
+
+Lemma quotient_lawvere_comp_class {R : realType} {sig}
+    {U : axiom_scheme sig} (Q : @LawvereMetricQuotient R sig U)
+    {n m k : nat}
+    (g : lawvere_op sig m k) (f : lawvere_op sig n m) :
+  @quotient_lawvere_comp R sig U Q n m k
+      (@lmq_class R sig U Q m k g)
+      (@lmq_class R sig U Q n m f) =
+    @lmq_class R sig U Q n k (lawvere_comp g f).
+Proof.
+  apply/(proj2 (@lmq_class_eq_iff_zero R sig U Q n k _ _)).
+  apply: Order.POrderTheory.le_anti.
+  apply/andP; split.
+  - apply: (le_trans (@lmq_comp_nexp R sig U Q n m k
+      (@lmq_repr R sig U Q m k (@lmq_class R sig U Q m k g)) g
+      (@lmq_repr R sig U Q n m (@lmq_class R sig U Q n m f)) f)).
+    have Hg :
+        @lawvere_hom_d R sig m k U
+          (@lmq_repr R sig U Q m k (@lmq_class R sig U Q m k g))
+          g = 0.
+    { apply/(proj1 (@lmq_class_eq_iff_zero R sig U Q m k _ _)).
+      exact: (@lmq_reprK R sig U Q m k
+        (@lmq_class R sig U Q m k g)). }
+    have Hf :
+        @lawvere_hom_d R sig n m U
+          (@lmq_repr R sig U Q n m (@lmq_class R sig U Q n m f))
+          f = 0.
+    { apply/(proj1 (@lmq_class_eq_iff_zero R sig U Q n m _ _)).
+      exact: (@lmq_reprK R sig U Q n m
+        (@lmq_class R sig U Q n m f)). }
+    by rewrite Hg Hf add0e.
+  - exact: lawvere_hom_d_nonneg.
+Qed.
+
+Definition quotient_lawvere_eid {R : realType} {sig}
+    {U : axiom_scheme sig} (Q : @LawvereMetricQuotient R sig U)
+    (n : nat) :
+    Metric_hom met_t_unit (lmq_hom Q n n).
+Proof.
+  refine (@Build_Metric_hom R met_t_unit (lmq_hom Q n n)
+    (fun _ : carrier met_t_unit =>
+      @lmq_class R sig U Q n n (@lawvere_id sig n)) _).
+  by move=> u v; rewrite !dist_refl.
+Defined.
+
+Definition quotient_lawvere_ecomp {R : realType} {sig}
+    {U : axiom_scheme sig} (Q : @LawvereMetricQuotient R sig U)
+    (n m k : nat) :
+    Metric_hom
+      (met_add_t_obj (lmq_hom Q m k) (lmq_hom Q n m))
+      (lmq_hom Q n k).
+Proof.
+  refine (@Build_Metric_hom R
+    (met_add_t_obj (lmq_hom Q m k) (lmq_hom Q n m))
+    (lmq_hom Q n k)
+    (fun gf : carrier
+        (met_add_t_obj (lmq_hom Q m k) (lmq_hom Q n m)) =>
+      @quotient_lawvere_comp R sig U Q n m k gf.1 gf.2) _).
+  move=> [g f] [g' f'].
+  change
+    (dist
+      (@lmq_class R sig U Q n k
+        (lawvere_comp
+          (@lmq_repr R sig U Q m k g)
+          (@lmq_repr R sig U Q n m f)))
+      (@lmq_class R sig U Q n k
+        (lawvere_comp
+          (@lmq_repr R sig U Q m k g')
+          (@lmq_repr R sig U Q n m f'))) <=
+     dist g g' + dist f f')%E.
+  rewrite (@lmq_qdist R sig U Q n k).
+  have Hg := @lmq_qdist R sig U Q m k
+    (@lmq_repr R sig U Q m k g)
+    (@lmq_repr R sig U Q m k g').
+  rewrite !(@lmq_reprK R sig U Q m k) in Hg.
+  have Hf := @lmq_qdist R sig U Q n m
+    (@lmq_repr R sig U Q n m f)
+    (@lmq_repr R sig U Q n m f').
+  rewrite !(@lmq_reprK R sig U Q n m) in Hf.
+  rewrite Hg Hf.
+  exact: (@lmq_comp_nexp R sig U Q n m k).
+Defined.
+
+Definition QuotientEnrichedLawvereTheory {R : realType} {sig}
+    {U : axiom_scheme sig} (Q : @LawvereMetricQuotient R sig U) :
+    EnrichedCategory (@MetAddMonoidal R).
+Proof.
+  refine (@Build_EnrichedCategory (@MetAddMonoidal R)
+    nat (lmq_hom Q)
+    (quotient_lawvere_eid Q)
+    (quotient_lawvere_ecomp Q) _ _ _).
+  - move=> l n m k.
+    apply Metric_hom_ext => hgf.
+    case: hgf => hg f.
+    case: hg => h g.
+    cbn.
+    rewrite -[h](@lmq_reprK R sig U Q k l h).
+    rewrite -[g](@lmq_reprK R sig U Q m k g).
+    rewrite -[f](@lmq_reprK R sig U Q n m f).
+    rewrite !quotient_lawvere_comp_class.
+    apply f_equal.
+    symmetry.
+    exact: (@comp_assoc (LawvereCategory sig) n m k l
+      (@lmq_repr R sig U Q k l h)
+      (@lmq_repr R sig U Q m k g)
+      (@lmq_repr R sig U Q n m f)).
+  - move=> n m.
+    apply Metric_hom_ext => uf.
+    case: uf => u f.
+    case: u.
+    cbn.
+    rewrite -[f](@lmq_reprK R sig U Q n m f).
+    rewrite quotient_lawvere_comp_class.
+    apply f_equal.
+    exact: (@comp_id_l (LawvereCategory sig) n m
+      (@lmq_repr R sig U Q n m f)).
+  - move=> n m.
+    apply Metric_hom_ext => fu.
+    case: fu => f u.
+    case: u.
+    cbn.
+    rewrite -[f](@lmq_reprK R sig U Q n m f).
+    rewrite quotient_lawvere_comp_class.
+    apply f_equal.
+    exact: (@comp_id_r (LawvereCategory sig) n m
+      (@lmq_repr R sig U Q n m f)).
+Defined.
+
+(* The quotient algebra on [n] generators is the hom-object [L(n, 1)].
+   Its model is the enriched representable functor [L(n, -)]. *)
+
+Definition QuotientTermAlgebra {R : realType} {sig}
+    {U : axiom_scheme sig} (Q : @LawvereMetricQuotient R sig U)
+    (n : nat) : ext_metric_space R :=
+  lmq_hom Q n 1.
+
+Definition quotient_term_model {R : realType} {sig}
+    {U : axiom_scheme sig} (Q : @LawvereMetricQuotient R sig U)
+    (n : nat) :
+    EnrichedFunctor
+      (QuotientEnrichedLawvereTheory Q)
+      (MetSelfEnriched R) :=
+  @enriched_representable R
+    (@QuotientEnrichedLawvereTheory R sig U Q) n.
+
+Lemma quotient_term_model_at_one {R : realType} {sig}
+    {U : axiom_scheme sig} (Q : @LawvereMetricQuotient R sig U)
+    (n : nat) :
+  @e_f_obj (@MetAddMonoidal R)
+    (@QuotientEnrichedLawvereTheory R sig U Q)
+    (MetSelfEnriched R)
+    (@quotient_term_model R sig U Q n) (1 : nat) =
+  @QuotientTermAlgebra R sig U Q n.
+Proof. reflexivity. Qed.
+
+Theorem quotient_algebra_is_enriched_model {R : realType} {sig}
+    {U : axiom_scheme sig} (Q : @LawvereMetricQuotient R sig U)
+    (n : nat) :
+  exists M : EnrichedFunctor
+      (QuotientEnrichedLawvereTheory Q)
+      (MetSelfEnriched R),
+    @e_f_obj (@MetAddMonoidal R)
+      (@QuotientEnrichedLawvereTheory R sig U Q)
+      (MetSelfEnriched R) M (1 : nat) =
+    @QuotientTermAlgebra R sig U Q n.
+Proof.
+  exists (@quotient_term_model R sig U Q n).
+  exact: quotient_term_model_at_one.
+Qed.

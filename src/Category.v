@@ -17,6 +17,7 @@ Unset Printing Implicit Defensive.
 Import Order.TTheory GRing.Theory Num.Theory.
 
 Local Open Scope ereal_scope.
+Local Open Scope classical_set_scope.
 
 Record Category := {
   obj : Type;
@@ -314,4 +315,369 @@ Proof.
     t_right_unitor := met_t_right_unitor;
     t_right_unitor_inv := met_t_right_unitor_inv
   |}.
+Defined.
+
+(* ============================================================
+   Additive monoidal structure on metric spaces
+
+   Unlike the max tensor used for finite powers, this tensor is the
+   appropriate base for enriched composition: changing both arrows
+   contributes the sum of their errors.
+   ============================================================ *)
+
+Definition met_add_t_obj {R : realType}
+    (M N : ext_metric_space R) : ext_metric_space R.
+Proof.
+  refine {|
+    carrier := carrier M * carrier N;
+    dist := fun p q => dist p.1 q.1 + dist p.2 q.2
+  |}.
+  - move=> a b.
+    exact: adde_ge0 (dist_ge0 a.1 b.1) (dist_ge0 a.2 b.2).
+  - move=> a.
+    by rewrite !dist_refl add0e.
+  - move=> [a1 a2] [b1 b2] H.
+    have Ha_le : dist a1 b1 <= 0.
+    { rewrite -H.
+      exact: leeDl (dist_ge0 a2 b2). }
+    have Hb_le : dist a2 b2 <= 0.
+    { rewrite -H.
+      exact: leeDr (dist_ge0 a1 b1). }
+    have Ha : dist a1 b1 = 0.
+    { apply: Order.POrderTheory.le_anti.
+      by apply/andP; split; [exact Ha_le | exact: dist_ge0]. }
+    have Hb : dist a2 b2 = 0.
+    { apply: Order.POrderTheory.le_anti.
+      by apply/andP; split; [exact Hb_le | exact: dist_ge0]. }
+    have -> : a1 = b1 := @dist_eq0 R M a1 b1 Ha.
+    have -> : a2 = b2 := @dist_eq0 R N a2 b2 Hb.
+    reflexivity.
+  - move=> [a1 a2] [b1 b2] /=.
+    by rewrite (dist_symm a1 b1) (dist_symm a2 b2).
+  - move=> [a1 a2] [b1 b2] [c1 c2] /=.
+    rewrite addeACA.
+    exact: leeD (dist_tri a1 b1 c1) (dist_tri a2 b2 c2).
+Defined.
+
+Definition met_add_t_hom {R : realType}
+    {A B C D : ext_metric_space R}
+    (f : Metric_hom A C) (g : Metric_hom B D) :
+    Metric_hom (met_add_t_obj A B) (met_add_t_obj C D).
+Proof.
+  refine (@Build_Metric_hom R
+    (met_add_t_obj A B) (met_add_t_obj C D)
+    (fun xy : carrier (met_add_t_obj A B) =>
+      (metric_hom_fun f xy.1, metric_hom_fun g xy.2)) _).
+  move=> [x y] [x' y'] /=.
+  exact: leeD (metric_hom_nexp f x x') (metric_hom_nexp g y y').
+Defined.
+
+Definition met_add_t_assoc {R : realType}
+    (A B C : ext_metric_space R) :
+    Metric_hom (met_add_t_obj (met_add_t_obj A B) C)
+               (met_add_t_obj A (met_add_t_obj B C)).
+Proof.
+  refine (@Build_Metric_hom R
+    (met_add_t_obj (met_add_t_obj A B) C)
+    (met_add_t_obj A (met_add_t_obj B C))
+    (fun xyz : carrier (met_add_t_obj (met_add_t_obj A B) C) =>
+      (xyz.1.1, (xyz.1.2, xyz.2))) _).
+  move=> [[x y] z] [[x' y'] z'] /=.
+  by rewrite addeA.
+Defined.
+
+Definition met_add_t_assoc_inv {R : realType}
+    (A B C : ext_metric_space R) :
+    Metric_hom (met_add_t_obj A (met_add_t_obj B C))
+               (met_add_t_obj (met_add_t_obj A B) C).
+Proof.
+  refine (@Build_Metric_hom R
+    (met_add_t_obj A (met_add_t_obj B C))
+    (met_add_t_obj (met_add_t_obj A B) C)
+    (fun xyz : carrier (met_add_t_obj A (met_add_t_obj B C)) =>
+      ((xyz.1, xyz.2.1), xyz.2.2)) _).
+  move=> [x [y z]] [x' [y' z']] /=.
+  by rewrite addeA.
+Defined.
+
+Definition met_add_t_left_unitor {R : realType}
+    (A : ext_metric_space R) :
+    Metric_hom (met_add_t_obj met_t_unit A) A.
+Proof.
+  refine (@Build_Metric_hom R
+    (met_add_t_obj met_t_unit A) A
+    (fun ux : carrier (met_add_t_obj met_t_unit A) => ux.2) _).
+  by move=> [u x] [u' y] /=; rewrite add0e.
+Defined.
+
+Definition met_add_t_left_unitor_inv {R : realType}
+    (A : ext_metric_space R) :
+    Metric_hom A (met_add_t_obj met_t_unit A).
+Proof.
+  refine (@Build_Metric_hom R A (met_add_t_obj met_t_unit A)
+    (fun x : carrier A => (tt, x)) _).
+  by move=> x y /=; rewrite add0e.
+Defined.
+
+Definition met_add_t_right_unitor {R : realType}
+    (A : ext_metric_space R) :
+    Metric_hom (met_add_t_obj A met_t_unit) A.
+Proof.
+  refine (@Build_Metric_hom R
+    (met_add_t_obj A met_t_unit) A
+    (fun xu : carrier (met_add_t_obj A met_t_unit) => xu.1) _).
+  by move=> [x u] [y u'] /=; rewrite adde0.
+Defined.
+
+Definition met_add_t_right_unitor_inv {R : realType}
+    (A : ext_metric_space R) :
+    Metric_hom A (met_add_t_obj A met_t_unit).
+Proof.
+  refine (@Build_Metric_hom R A (met_add_t_obj A met_t_unit)
+    (fun x : carrier A => (x, tt)) _).
+  by move=> x y /=; rewrite adde0.
+Defined.
+
+Definition MetAddMonoidal {R : realType} : MonoidalCategory.
+Proof.
+  refine {|
+    mon_cat := Met R;
+    t_obj := met_add_t_obj;
+    t_hom := fun _ _ _ _ => met_add_t_hom;
+    t_unit := met_t_unit;
+    t_assoc := met_add_t_assoc;
+    t_assoc_inv := met_add_t_assoc_inv;
+    t_left_unitor := met_add_t_left_unitor;
+    t_left_unitor_inv := met_add_t_left_unitor_inv;
+    t_right_unitor := met_add_t_right_unitor;
+    t_right_unitor_inv := met_add_t_right_unitor_inv
+  |}.
+Defined.
+
+(* ============================================================
+   Sup metric on non-expansive maps
+   ============================================================ *)
+
+Definition metric_hom_sup_dist {R : realType}
+    {M N : ext_metric_space R} (f g : Metric_hom M N) : \bar R :=
+  ereal_sup (range (fun ox : option (carrier M) =>
+    match ox with
+    | Some x => dist (metric_hom_fun f x) (metric_hom_fun g x)
+    | None => 0
+    end)).
+
+Lemma metric_hom_sup_ubound {R : realType}
+    {M N : ext_metric_space R} (f g : Metric_hom M N)
+    (ox : option (carrier M)) :
+  (match ox with
+   | Some x => dist (metric_hom_fun f x) (metric_hom_fun g x)
+   | None => 0
+   end) <= metric_hom_sup_dist f g.
+Proof.
+  apply: ereal_sup_ubound.
+  by exists ox.
+Qed.
+
+Definition metric_hom_space {R : realType}
+    (M N : ext_metric_space R) : ext_metric_space R.
+Proof.
+  refine {|
+    carrier := Metric_hom M N;
+    dist := metric_hom_sup_dist
+  |}.
+  - move=> f g.
+    exact: (@metric_hom_sup_ubound R M N f g None).
+  - move=> f.
+    apply: Order.POrderTheory.le_anti.
+    apply/andP; split.
+    + apply: ge_ereal_sup => y.
+      move=> [ox _ <-].
+      by case: ox => [x|] /=; rewrite ?dist_refl.
+    + exact: (@metric_hom_sup_ubound R M N f f None).
+  - move=> f g H.
+    apply Metric_hom_ext => x.
+    have Hzero :
+        dist (metric_hom_fun f x) (metric_hom_fun g x) = 0.
+    { apply: Order.POrderTheory.le_anti.
+      apply/andP; split.
+      - have Hx := @metric_hom_sup_ubound R M N f g (Some x).
+        by rewrite H in Hx.
+      - exact: dist_ge0. }
+    exact: (@dist_eq0 R N
+      (metric_hom_fun f x) (metric_hom_fun g x) Hzero).
+  - move=> f g.
+    apply: Order.POrderTheory.le_anti.
+    apply/andP; split.
+    + apply: ge_ereal_sup => y.
+      move=> [ox _ <-].
+      case: ox => [x|] /=.
+      * rewrite dist_symm.
+        exact: (@metric_hom_sup_ubound R M N g f (Some x)).
+      * exact: (@metric_hom_sup_ubound R M N g f None).
+    + apply: ge_ereal_sup => y.
+      move=> [ox _ <-].
+      case: ox => [x|] /=.
+      * rewrite dist_symm.
+        exact: (@metric_hom_sup_ubound R M N f g (Some x)).
+      * exact: (@metric_hom_sup_ubound R M N f g None).
+  - move=> f g h.
+    apply: ge_ereal_sup => y.
+    move=> [ox _ <-].
+    case: ox => [x|] /=.
+    + apply: (le_trans (dist_tri
+        (metric_hom_fun f x)
+        (metric_hom_fun g x)
+        (metric_hom_fun h x))).
+      exact: leeD
+        (@metric_hom_sup_ubound R M N f g (Some x))
+        (@metric_hom_sup_ubound R M N g h (Some x)).
+    + exact: adde_ge0
+        (@metric_hom_sup_ubound R M N f g None)
+        (@metric_hom_sup_ubound R M N g h None).
+Defined.
+
+Definition met_enriched_id {R : realType} (M : ext_metric_space R) :
+    Metric_hom met_t_unit (metric_hom_space M M).
+Proof.
+  refine (@Build_Metric_hom R met_t_unit (metric_hom_space M M)
+    (fun _ : carrier met_t_unit => Metric_hom_id M) _).
+  by move=> u v; rewrite !dist_refl.
+Defined.
+
+Definition met_enriched_comp {R : realType}
+    (X Y Z : ext_metric_space R) :
+    Metric_hom
+      (met_add_t_obj (metric_hom_space Y Z) (metric_hom_space X Y))
+      (metric_hom_space X Z).
+Proof.
+  refine (@Build_Metric_hom R
+    (met_add_t_obj (metric_hom_space Y Z) (metric_hom_space X Y))
+    (metric_hom_space X Z)
+    (fun gf : carrier
+        (met_add_t_obj (metric_hom_space Y Z) (metric_hom_space X Y)) =>
+      Metric_hom_comp gf.1 gf.2) _).
+  move=> [g f] [g' f'].
+  change
+    (metric_hom_sup_dist (Metric_hom_comp g f)
+       (Metric_hom_comp g' f') <=
+     metric_hom_sup_dist g g' + metric_hom_sup_dist f f')%E.
+  apply: ge_ereal_sup => y.
+  move=> [ox _ <-].
+  case: ox => [x|] /=.
+  - apply: (le_trans (dist_tri
+      (metric_hom_fun g (metric_hom_fun f x))
+      (metric_hom_fun g' (metric_hom_fun f x))
+      (metric_hom_fun g' (metric_hom_fun f' x)))).
+    apply: leeD.
+    + exact: (@metric_hom_sup_ubound R Y Z g g'
+        (Some (metric_hom_fun f x))).
+    + apply: (le_trans
+        (metric_hom_nexp g' (metric_hom_fun f x)
+          (metric_hom_fun f' x))).
+      exact: (@metric_hom_sup_ubound R X Y f f' (Some x)).
+  - exact: adde_ge0
+      (@metric_hom_sup_ubound R Y Z g g' None)
+      (@metric_hom_sup_ubound R X Y f f' None).
+Defined.
+
+Definition MetSelfEnriched (R : realType) :
+    EnrichedCategory (@MetAddMonoidal R).
+Proof.
+  refine (@Build_EnrichedCategory (@MetAddMonoidal R)
+    (ext_metric_space R) (@metric_hom_space R)
+    (@met_enriched_id R) (@met_enriched_comp R) _ _ _).
+  - move=> W X Y Z.
+    apply Metric_hom_ext => hgf.
+    case: hgf => hg f.
+    case: hg => h g.
+    apply Metric_hom_ext => x.
+    reflexivity.
+  - move=> X Y.
+    apply Metric_hom_ext => uf.
+    case: uf => u f.
+    case: u.
+    apply Metric_hom_ext => x.
+    reflexivity.
+  - move=> X Y.
+    apply Metric_hom_ext => fu.
+    case: fu => f u.
+    case: u.
+    apply Metric_hom_ext => x.
+    reflexivity.
+Defined.
+
+(* ============================================================
+   Enriched representable models
+   ============================================================ *)
+
+Definition enriched_postcomp {R : realType}
+    (C : EnrichedCategory (@MetAddMonoidal R))
+    (A X Y : e_obj C) (g : carrier (e_hom X Y)) :
+    Metric_hom (e_hom A X) (e_hom A Y).
+Proof.
+  refine (@Build_Metric_hom R (e_hom A X) (e_hom A Y)
+    (fun f : carrier (e_hom A X) =>
+      metric_hom_fun (@e_comp (@MetAddMonoidal R) C A X Y) (g, f)) _).
+  move=> f f'.
+  have H := metric_hom_nexp
+    (@e_comp (@MetAddMonoidal R) C A X Y) (g, f) (g, f').
+  by rewrite /= dist_refl add0e in H.
+Defined.
+
+Definition enriched_postcomp_hom {R : realType}
+    (C : EnrichedCategory (@MetAddMonoidal R))
+    (A X Y : e_obj C) :
+    Metric_hom (e_hom X Y)
+      (metric_hom_space (e_hom A X) (e_hom A Y)).
+Proof.
+  refine (@Build_Metric_hom R (e_hom X Y)
+    (metric_hom_space (e_hom A X) (e_hom A Y))
+    (fun g : carrier (e_hom X Y) =>
+      @enriched_postcomp R C A X Y g) _).
+  move=> g g'.
+  change
+    (metric_hom_sup_dist (@enriched_postcomp R C A X Y g)
+       (@enriched_postcomp R C A X Y g') <= dist g g')%E.
+  apply: ge_ereal_sup => y.
+  move=> [ox _ <-].
+  case: ox => [f|] /=.
+  - have H := metric_hom_nexp
+      (@e_comp (@MetAddMonoidal R) C A X Y) (g, f) (g', f).
+    by rewrite /= dist_refl adde0 in H.
+  - exact: dist_ge0.
+Defined.
+
+Definition enriched_representable {R : realType}
+    (C : EnrichedCategory (@MetAddMonoidal R)) (A : e_obj C) :
+    EnrichedFunctor C (MetSelfEnriched R).
+Proof.
+  refine (@Build_EnrichedFunctor (@MetAddMonoidal R)
+    C (MetSelfEnriched R)
+    (fun X => e_hom A X)
+    (fun X Y => @enriched_postcomp_hom R C A X Y) _ _).
+  - move=> X.
+    apply Metric_hom_ext => u.
+    case: u.
+    apply Metric_hom_ext => f.
+    have H := @e_comp_id_l (@MetAddMonoidal R) C A X.
+    have Hpoint := congr1
+      (fun k : Metric_hom
+          (met_add_t_obj met_t_unit (e_hom A X)) (e_hom A X) =>
+        metric_hom_fun k (tt, f)) H.
+    cbn in Hpoint |-.
+    exact Hpoint.
+  - move=> X Y Z.
+    apply Metric_hom_ext => gf.
+    case: gf => g f.
+    apply Metric_hom_ext => h.
+    have H := @e_comp_assoc (@MetAddMonoidal R) C Z A X Y.
+    have Hpoint := congr1
+      (fun k : Metric_hom
+          (met_add_t_obj
+            (met_add_t_obj (e_hom Y Z) (e_hom X Y))
+            (e_hom A X))
+          (e_hom A Z) =>
+        metric_hom_fun k ((g, f), h)) H.
+    cbn in Hpoint |-.
+    exact Hpoint.
 Defined.
