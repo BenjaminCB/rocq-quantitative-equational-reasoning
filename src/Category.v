@@ -4,9 +4,9 @@
 
 From Stdlib Require Import Logic.FunctionalExtensionality.
 From Stdlib Require Import Logic.ProofIrrelevance.
-From mathcomp Require Import ssreflect ssrfun ssrbool eqtype.
-From mathcomp Require Import order ssralg ssrnum archimedean reals ereal.
-From mathcomp Require Import classical_sets.
+From HB Require Import structures.
+From mathcomp Require Import all_ssreflect_compat all_algebra.
+From mathcomp Require Import all_classical reals ereal.
 
 From Template Require Import Metric.
 
@@ -349,8 +349,7 @@ Proof.
     have Hb : dist a2 b2 = 0.
     { apply: Order.POrderTheory.le_anti.
       by apply/andP; split; [exact Hb_le | exact: dist_ge0]. }
-    have -> : a1 = b1 := @dist_eq0 R M a1 b1 Ha.
-    have -> : a2 = b2 := @dist_eq0 R N a2 b2 Hb.
+    rewrite (@dist_eq0 R M a1 b1 Ha) (@dist_eq0 R N a2 b2 Hb).
     reflexivity.
   - move=> [a1 a2] [b1 b2] /=.
     by rewrite (dist_symm a1 b1) (dist_symm a2 b2).
@@ -492,7 +491,7 @@ Proof.
     apply/andP; split.
     + apply: ge_ereal_sup => y.
       move=> [ox _ <-].
-      by case: ox => [x|] /=; rewrite ?dist_refl.
+      by case: ox => [ x | ] /=; rewrite ?dist_refl.
     + exact: (@metric_hom_sup_ubound R M N f f None).
   - move=> f g H.
     apply Metric_hom_ext => x.
@@ -510,20 +509,20 @@ Proof.
     apply/andP; split.
     + apply: ge_ereal_sup => y.
       move=> [ox _ <-].
-      case: ox => [x|] /=.
+      case: ox => [ x | ] /=.
       * rewrite dist_symm.
         exact: (@metric_hom_sup_ubound R M N g f (Some x)).
       * exact: (@metric_hom_sup_ubound R M N g f None).
     + apply: ge_ereal_sup => y.
       move=> [ox _ <-].
-      case: ox => [x|] /=.
+      case: ox => [ x | ] /=.
       * rewrite dist_symm.
         exact: (@metric_hom_sup_ubound R M N f g (Some x)).
       * exact: (@metric_hom_sup_ubound R M N f g None).
   - move=> f g h.
     apply: ge_ereal_sup => y.
     move=> [ox _ <-].
-    case: ox => [x|] /=.
+    case: ox => [ x | ] /=.
     + apply: (le_trans (dist_tri
         (metric_hom_fun f x)
         (metric_hom_fun g x)

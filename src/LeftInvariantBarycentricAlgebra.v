@@ -6,7 +6,7 @@
 From mathcomp Require Import all_ssreflect_compat all_algebra.
 From mathcomp Require Import all_classical reals ereal.
 
-From Template Require Import QET Category Metric MetricLawvere.
+From Template Require Import QET Category Metric.
 
 Set Implicit Arguments.
 Unset Strict Implicit.
