@@ -693,6 +693,31 @@ Proof.
   exact: (@lawvere_hom_d_ubound R sig n m U f g None).
 Qed.
 
+(* The zero-distance relation whose quotient is used in Section 6 of the
+   paper.  Here it is applied hom-wise to tuples of terms. *)
+Definition lawvere_hom_zero_equiv {R : realType} {sig}
+    {n m : nat} (U : axiom_scheme sig)
+    (f g : lawvere_op sig n m) : Prop :=
+  @lawvere_hom_d R sig n m U f g = 0.
+
+(* A single hom-object quotient.  Keeping this separate from
+   [LawvereMetricQuotient] makes the construction modular: first construct
+   the metric quotient for every pair [n, m], then prove the one composition
+   estimate needed to assemble the enriched Lawvere theory. *)
+Record LawvereHomMetricQuotient (R : realType)
+    (sig : signature) (U : axiom_scheme sig) (n m : nat) := {
+  lhmq_hom : ext_metric_space R;
+  lhmq_class :
+    lawvere_op sig n m -> carrier lhmq_hom;
+  lhmq_repr :
+    carrier lhmq_hom -> lawvere_op sig n m;
+  lhmq_reprK : forall x : carrier lhmq_hom,
+    lhmq_class (lhmq_repr x) = x;
+  lhmq_qdist : forall f g : lawvere_op sig n m,
+    dist (lhmq_class f) (lhmq_class g) =
+    @lawvere_hom_d R sig n m U f g
+}.
+
 Record LawvereMetricQuotient (R : realType)
     (sig : signature) (U : axiom_scheme sig) := {
   lmq_hom : forall n m : nat, ext_metric_space R;
@@ -713,6 +738,92 @@ Record LawvereMetricQuotient (R : realType)
       @lawvere_hom_d R sig m k U g g' +
       @lawvere_hom_d R sig n m U f f')%E
 }.
+
+Definition assemble_lawvere_metric_quotient
+    {R : realType} {sig : signature} {U : axiom_scheme sig}
+    (Qhom : forall n m, @LawvereHomMetricQuotient R sig U n m)
+    (Hcomp : forall n m k
+      (g g' : lawvere_op sig m k)
+      (f f' : lawvere_op sig n m),
+      (@lawvere_hom_d R sig n k U
+          (lawvere_comp g f) (lawvere_comp g' f') <=
+        @lawvere_hom_d R sig m k U g g' +
+        @lawvere_hom_d R sig n m U f f')%E) :
+    @LawvereMetricQuotient R sig U.
+Proof.
+  refine {|
+    lmq_hom := fun n m =>
+      @lhmq_hom R sig U n m (Qhom n m);
+    lmq_class := fun n m =>
+      @lhmq_class R sig U n m (Qhom n m);
+    lmq_repr := fun n m =>
+      @lhmq_repr R sig U n m (Qhom n m);
+    lmq_reprK := fun n m =>
+      @lhmq_reprK R sig U n m (Qhom n m);
+    lmq_qdist := fun n m =>
+      @lhmq_qdist R sig U n m (Qhom n m);
+    lmq_comp_nexp := Hcomp
+  |}.
+Defined.
+
+Lemma lawvere_hom_d_refl {R : realType} {sig}
+    {n m : nat} (U : axiom_scheme sig)
+    (f : lawvere_op sig n m) :
+  @lawvere_hom_d R sig n m U f f = 0.
+Proof.
+  rewrite /lawvere_hom_d.
+  apply: Order.POrderTheory.le_anti; apply /andP; split.
+  - apply ge_ereal_sup.
+    move => x [i _ <-].
+    case: i => [ i | ]; [ by rewrite d_U_refl | by [] ].
+  - apply: ereal_sup_ubound.
+    by exists None.
+Qed.
+
+Lemma lawvere_hom_d_ge0 {R : realType} {sig}
+    {n m : nat} (U : axiom_scheme sig)
+    (f g : lawvere_op sig n m) :
+  0 <= @lawvere_hom_d R sig n m U f g.
+Proof.
+  apply: ereal_sup_ubound.
+  by exists None.
+Qed.
+
+Lemma lawvere_hom_d_symm {R : realType} {sig}
+    {n m : nat} (U : axiom_scheme sig)
+    (f g : lawvere_op sig n m) :
+  @lawvere_hom_d R sig n m U f g = 
+  @lawvere_hom_d R sig n m U g f.
+Proof.
+  apply: Order.POrderTheory.le_anti; apply /andP; split.
+  - apply ge_ereal_sup.
+    move => x [i _ <-].
+    case: i => [ i | ]; last by apply lawvere_hom_d_ge0.
+    rewrite /lawvere_hom_d; apply ereal_sup_ubound.
+    by exists (Some i) => //=; rewrite d_U_symm.
+  - apply ge_ereal_sup.
+    move => x [i _ <-].
+    case: i => [ i | ]; last by apply lawvere_hom_d_ge0.
+    rewrite /lawvere_hom_d; apply ereal_sup_ubound.
+    by exists (Some i) => //=; rewrite d_U_symm.
+Qed.
+
+Lemma lawvere_hom_d_tri {R : realType} {sig}
+    {n m : nat} (U : axiom_scheme sig)
+    (f g h : lawvere_op sig n m) :
+  @lawvere_hom_d R sig n m U f h <=
+  @lawvere_hom_d R sig n m U f g +
+  @lawvere_hom_d R sig n m U g h.
+Proof.
+  rewrite {1}/lawvere_hom_d.
+  apply ge_ereal_sup => x [i _ <-].
+  case: i => [ i | ].
+  - apply: (le_trans (d_U_tri U (f i) (g i) (h i))).
+    exact: leeD
+      (lawvere_hom_d_ubound U f g (Some i))
+      (lawvere_hom_d_ubound U g h (Some i)).
+  - apply: adde_ge0; exact: lawvere_hom_d_ge0.
+Qed. 
 
 Lemma lmq_class_eq_iff_zero {R : realType} {sig}
     {U : axiom_scheme sig} (Q : @LawvereMetricQuotient R sig U)
