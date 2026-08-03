@@ -825,6 +825,105 @@ Proof.
   - apply: adde_ge0; exact: lawvere_hom_d_ge0.
 Qed. 
 
+(* ============================================================
+   Zero-distance equivalence and the hom-wise metric quotient
+   ============================================================ *)
+
+Lemma lawvere_hom_zero_equiv_refl {R : realType} {sig}
+    {n m : nat} (U : axiom_scheme sig)
+    (f : lawvere_op sig n m) :
+  @lawvere_hom_zero_equiv R sig n m U f f.
+Proof.
+  exact: lawvere_hom_d_refl.
+Qed.
+
+Lemma lawvere_hom_zero_equiv_symm {R : realType} {sig}
+    {n m : nat} (U : axiom_scheme sig)
+    (f g : lawvere_op sig n m) :
+  @lawvere_hom_zero_equiv R sig n m U f g ->
+  @lawvere_hom_zero_equiv R sig n m U g f.
+Proof.
+  rewrite /lawvere_hom_zero_equiv.
+  move=> Hfg.
+  by rewrite lawvere_hom_d_symm.
+Qed.
+
+Lemma lawvere_hom_zero_equiv_trans {R : realType} {sig}
+    {n m : nat} (U : axiom_scheme sig)
+    (f g h : lawvere_op sig n m) :
+  @lawvere_hom_zero_equiv R sig n m U f g ->
+  @lawvere_hom_zero_equiv R sig n m U g h ->
+  @lawvere_hom_zero_equiv R sig n m U f h.
+Proof.
+  rewrite /lawvere_hom_zero_equiv.
+  move=> Hfg Hgh.
+  apply: Order.POrderTheory.le_anti; apply/andP; split.
+  - apply: (le_trans (lawvere_hom_d_tri U f g h)).
+    by rewrite Hfg Hgh add0e.
+  - exact: lawvere_hom_d_ge0.
+Qed.
+
+Lemma lawvere_hom_d_zero_left {R : realType} {sig}
+    {n m : nat} (U : axiom_scheme sig)
+    (f f' g : lawvere_op sig n m) :
+  @lawvere_hom_zero_equiv R sig n m U f f' ->
+  @lawvere_hom_d R sig n m U f g =
+  @lawvere_hom_d R sig n m U f' g.
+Proof.
+  rewrite /lawvere_hom_zero_equiv.
+  move=> Hff'.
+  apply: Order.POrderTheory.le_anti; apply/andP; split.
+  - have Htri := @lawvere_hom_d_tri R sig n m U f f' g.
+    by rewrite Hff' add0e in Htri.
+  - have Htri := @lawvere_hom_d_tri R sig n m U f' f g.
+    rewrite (@lawvere_hom_d_symm R sig n m U f' f)
+      Hff' add0e in Htri.
+    exact Htri.
+Qed.
+
+Lemma lawvere_hom_d_zero_right {R : realType} {sig}
+    {n m : nat} (U : axiom_scheme sig)
+    (f g g' : lawvere_op sig n m) :
+  @lawvere_hom_zero_equiv R sig n m U g g' ->
+  @lawvere_hom_d R sig n m U f g =
+  @lawvere_hom_d R sig n m U f g'.
+Proof.
+  move=> Hgg'.
+  rewrite (@lawvere_hom_d_symm R sig n m U f g).
+  rewrite (@lawvere_hom_d_zero_left R sig n m U g g' f Hgg').
+  exact: (@lawvere_hom_d_symm R sig n m U g' f).
+Qed.
+
+(* TODO: construct the quotient of [lawvere_op sig n m] by
+   [lawvere_hom_zero_equiv U], choose representatives, and equip it with
+   the metric induced by [lawvere_hom_d U]. *)
+Definition lawvere_hom_metric_quotient {R : realType} {sig}
+    (U : axiom_scheme sig) (n m : nat) :
+    @LawvereHomMetricQuotient R sig U n m.
+Proof.
+Admitted.
+
+(* TODO: this is the remaining compatibility estimate needed to descend
+   Lawvere composition to the metric quotients. *)
+Lemma lawvere_hom_d_comp_nexp {R : realType} {sig}
+    (U : axiom_scheme sig) (n m k : nat)
+    (g g' : lawvere_op sig m k)
+    (f f' : lawvere_op sig n m) :
+  (@lawvere_hom_d R sig n k U
+      (lawvere_comp g f) (lawvere_comp g' f') <=
+    @lawvere_hom_d R sig m k U g g' +
+    @lawvere_hom_d R sig n m U f f')%E.
+Proof.
+Admitted.
+
+Definition canonical_lawvere_metric_quotient {R : realType} {sig}
+    (U : axiom_scheme sig) : @LawvereMetricQuotient R sig U.
+Proof.
+  apply: assemble_lawvere_metric_quotient.
+  - exact: (fun n m => lawvere_hom_metric_quotient U n m).
+  - exact: lawvere_hom_d_comp_nexp.
+Defined.
+
 Lemma lmq_class_eq_iff_zero {R : realType} {sig}
     {U : axiom_scheme sig} (Q : @LawvereMetricQuotient R sig U)
     {n m : nat} (f g : lawvere_op sig n m) :
