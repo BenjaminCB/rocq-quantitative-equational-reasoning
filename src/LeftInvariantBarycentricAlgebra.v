@@ -51,7 +51,8 @@ Notation "x <+ e +> y" := (bary e x y)
 Definition LIB_category : Category :=
   LawvereCategory bary_sig.
 
-Inductive LIB_rule {X : Type} : ctx bary_sig X -> qeq bary_sig X -> Prop :=
+Inductive LIB_rule {R : realType} {X : Type} :
+    ctx R bary_sig X -> qeq R bary_sig X -> Prop :=
   | LIB_B1 : forall x y,
       LIB_rule [::]
         (Var x <+ one_weight +> Var y ~[0] Var x)
@@ -73,29 +74,29 @@ Inductive LIB_rule {X : Type} : ctx bary_sig X -> qeq bary_sig X -> Prop :=
         ((Var x <+ e +> Var y) <+ e' +> Var z ~[0]
          Var x <+ ee' +> (Var y <+ skew +> Var z))
   | LIB_LI : forall (e : bary_weight) eps x x' x'',
-      Qnn eps ->
-      (bw e <= eps)%R ->
+      Rnn eps ->
+      ((ratr (bw e) : R) <= eps)%R ->
       LIB_rule [::]
         (Var x' <+ e +> Var x ~[eps] Var x'' <+ e +> Var x).
 
 Definition LIB_d {R : realType} {n m : nat}
     (f g : lawvere_op bary_sig n m) : \bar R :=
-  qlt_hom_d (fun X => @LIB_rule X) f g.
+  qlt_hom_d (fun X => @LIB_rule R X) f g.
 
 Definition LIB_d_tilde {R : realType} {n m : nat}
-    (Q : @HomMetricQuotient R bary_sig (fun X => @LIB_rule X) n m)
+    (Q : @HomMetricQuotient R bary_sig (fun X => @LIB_rule R X) n m)
     (x y : carrier Q) : \bar R :=
-  @hom_d_tilde R bary_sig (fun X => @LIB_rule X) n m Q x y.
+  @hom_d_tilde R bary_sig (fun X => @LIB_rule R X) n m Q x y.
 
 Lemma LIB_d_tilde_class {R : realType} {n m : nat}
-    (Q : @HomMetricQuotient R bary_sig (fun X => @LIB_rule X) n m)
+    (Q : @HomMetricQuotient R bary_sig (fun X => @LIB_rule R X) n m)
     (f g : lawvere_op bary_sig n m) :
   @LIB_d_tilde R n m Q
-    (@hmq_class R bary_sig (fun X => @LIB_rule X) n m Q f)
-    (@hmq_class R bary_sig (fun X => @LIB_rule X) n m Q g) =
+    (@hmq_class R bary_sig (fun X => @LIB_rule R X) n m Q f)
+    (@hmq_class R bary_sig (fun X => @LIB_rule R X) n m Q g) =
   @LIB_d R n m f g.
 Proof.
-  exact: (@hom_d_tilde_class R bary_sig (fun X => @LIB_rule X) n m Q f g).
+  exact: (@hom_d_tilde_class R bary_sig (fun X => @LIB_rule R X) n m Q f g).
 Qed.
 
 Definition LIB_zero_equiv {R : realType} {n m : nat}
@@ -131,12 +132,10 @@ Proof.
       apply: ge_ereal_inf; exists 0; last by apply lexx.
       rewrite /bound_set /mkset.
       exists (0 : R)%R; last by [].
-      exists (exist _ (0 : rat) Qnn_zero).
+      exists (exist _ (0 : R)%R Rnn_zero).
       split.
       * exact: D_Refl.
-      * rewrite /nnrat_embed /nnrat_val /=.
-        symmetry.
-        exact: (ratr_nat R 0).
+      * reflexivity.
     + apply/ereal_infP => y Hy.
       by case: Hy => Hy0 _.
   - move => a b H.

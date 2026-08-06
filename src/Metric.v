@@ -1,11 +1,8 @@
 (* ============================================================
    MathComp Analysis backend for quantitative metric structure
 
-   This file intentionally keeps MathComp Analysis imports separate
-   from QET.v.  The main development currently uses Stdlib Reals and
-   QArith notations; importing MathComp Analysis globally there causes
-   notation conflicts.  This backend is the target infrastructure for
-   the metric/infimum parts of the full formalization.
+   This file provides the MathComp Analysis infrastructure shared by
+   the real-indexed quantitative equations and their induced metrics.
    ============================================================ *)
 
 From HB Require Import structures.
@@ -56,9 +53,9 @@ Definition non_expansive {R : realType} {Sym : Type} {arity : Sym -> nat}
     (forall i, dist_le (xs i) (ys i) eps) ->
     dist_le (ops f xs) (ops f ys) eps.
 
-(** The set of real bounds associated to a proof-indexed family of
-    bounds.  Later, the QET rational bound relation can be transported
-    here by choosing an embedding [Q -> R]. *)
+(** The set of real bounds associated to a proof-indexed family.  For
+    quantitative equations the index type is the non-negative part of
+    the ambient real type and [embed] is its first projection. *)
 Definition bound_set {R : realType} {I : Type}
     (embed : I -> R) (P : I -> Prop) : set R :=
   [set r | exists i, P i /\ r = embed i].
