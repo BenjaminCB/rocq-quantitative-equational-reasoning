@@ -555,14 +555,10 @@ Proof.
     (fun gf : carrier
         (met_add_t_obj (metric_hom_space Y Z) (metric_hom_space X Y)) =>
       Metric_hom_comp gf.1 gf.2) _).
-  move=> [g f] [g' f'].
-  change
-    (metric_hom_sup_dist (Metric_hom_comp g f)
-       (Metric_hom_comp g' f') <=
-     metric_hom_sup_dist g g' + metric_hom_sup_dist f f')%E.
+  move=> [g f] [g' f'] /=.
   apply: ge_ereal_sup => y.
   move=> [ox _ <-].
-  case: ox => [x|] /=.
+  case: ox => [ x | ] /=.
   - apply: (le_trans (dist_tri
       (metric_hom_fun g (metric_hom_fun f x))
       (metric_hom_fun g' (metric_hom_fun f x))
