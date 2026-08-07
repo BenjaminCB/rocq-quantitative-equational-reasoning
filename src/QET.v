@@ -178,6 +178,60 @@ Proof.
 Qed.
 
 (* ============================================================
+   Quantitative algebras and semantic interpretation
+   ============================================================ *)
+
+(** A quantitative algebra consists of an extended metric space, an
+    interpretation of every operation symbol, and a proof that all
+    interpreted operations are non-expansive. *)
+Record QAlgebra (R : realType) (sig : signature) := {
+  qa_metric : ext_metric_space R;
+  qa_ops : algebra_ops (@arity sig) qa_metric;
+  qa_nexp : non_expansive qa_ops;
+}.
+
+Definition qa_carrier {R sig} (A : QAlgebra R sig) : Type :=
+  carrier (qa_metric A).
+
+Fixpoint eval {R sig X} (A : QAlgebra R sig)
+    (rho : X -> qa_carrier A) (t : term sig X) : qa_carrier A :=
+  match t with
+  | Var x => rho x
+  | App f args => qa_ops (fun i => @eval R sig X A rho (args i))
+  end.
+
+Lemma eval_subst {R sig X Y} (A : QAlgebra R sig)
+    (rho : Y -> qa_carrier A) (sigma : X -> term sig Y)
+    (t : term sig X) :
+  eval rho (subst_term sigma t) =
+  eval (eval rho \o sigma) t.
+Proof.
+  elim: t => [x | f args IH] //=.
+  congr (qa_ops _).
+  apply functional_extensionality => i.
+  exact: IH.
+Qed.
+
+(** Semantic validity of a quantitative equation under a valuation. *)
+Definition qdist_le {R : realType} {sig X} (A : QAlgebra R sig)
+    (rho : X -> qa_carrier A) (phi : qeq R sig X) : Prop :=
+  @dist_le R (qa_metric A)
+    (eval rho (lhs phi)) (eval rho (rhs phi)) (eps phi).
+
+(** A conditional equation holds when every valuation satisfying its
+    finite premise context also satisfies its conclusion. *)
+Definition satisfies_inf {R : realType} {sig X} (A : QAlgebra R sig)
+    (Gamma : ctx R sig X) (phi : qeq R sig X) : Prop :=
+  forall rho,
+    (forall psi, List.In psi Gamma -> @qdist_le R sig X A rho psi) ->
+    @qdist_le R sig X A rho phi.
+
+(** A quantitative algebra models an axiom scheme at every variable type. *)
+Definition models {R : realType} {sig}
+    (A : QAlgebra R sig) (U : axiom_scheme R sig) : Prop :=
+  forall X Gamma phi, U X Gamma phi -> @satisfies_inf R sig X A Gamma phi.
+
+(* ============================================================
    The Induced Pseudometric
    ============================================================ *)
 
@@ -352,6 +406,24 @@ Proof.
   exists (exist _ eps Heps).
   split; first exact Hderive.
   reflexivity.
+Qed.
+
+(** Greatest-lower-bound elimination principle for [d_U].  To prove that a
+    candidate extended real lies below [d_U U s t], it is enough to prove
+    that it lies below every non-negative derivable error bound. *)
+Lemma d_U_greatest_lower_bound {R : realType} {sig X}
+    (U : axiom_scheme R sig) (s t : term sig X) (b : \bar R) :
+  (forall eps : R, Rnn eps ->
+    derives U [::] (s ~[eps] t) -> b <= eps%:E) ->
+  b <= @d_U R sig X U s t.
+Proof.
+  move=> Hlower.
+  rewrite /d_U /extended_infimum.
+  apply/ereal_infP => y Himg.
+  case: Himg => r Hb <-.
+  case: Hb => eps [Hderive Hr].
+  rewrite Hr.
+  exact: Hlower (nonneg_real_val_ge0 eps) Hderive.
 Qed.
 
 Lemma ene_neq_ninfty {R : realType} (x : \bar R) :
