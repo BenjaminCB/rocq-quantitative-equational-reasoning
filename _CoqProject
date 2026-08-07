@@ -1,4 +1,5 @@
 -Q src Template
 src/Metric.v
+src/ProbabilityDistribution.v
 src/Category.v
 src/QET.v
