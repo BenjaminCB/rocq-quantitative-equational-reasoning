@@ -128,6 +128,24 @@ Proof.
   exact: inhabits (independent_coupling mu nu).
 Qed.
 
+(** The expected [d]-cost of a coupling.  This is [V_d] from
+    Definition 4.2 of the compactness paper. *)
+Definition coupling_cost {R : realType} {X Y : finType}
+    (d : X -> Y -> R)
+    {mu : probability_distribution R X}
+    {nu : probability_distribution R Y}
+    (gamma : coupling mu nu) : R :=
+  \sum_(x : X) \sum_(y : Y)
+    coupling_distribution gamma x y * d x y.
+
+(** Definition 4.2: the Kantorovich lifting of [d], obtained by taking
+    the infimum of coupling costs. *)
+Definition kantorovich_metric {R : realType} {X : finType}
+    (d : X -> X -> R)
+    (mu nu : probability_distribution R X) : R :=
+  inf [set r : R | exists gamma : coupling mu nu,
+    r = coupling_cost d gamma].
+
 Definition weighted_sum {R : realType}
     (p : probability_weight R) (x y : R) : R :=
   weight p * x + (1 - weight p) * y.
