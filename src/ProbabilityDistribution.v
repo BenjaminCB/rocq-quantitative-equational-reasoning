@@ -140,11 +140,60 @@ Definition coupling_cost {R : realType} {X Y : finType}
 
 (** Definition 4.2: the Kantorovich lifting of [d], obtained by taking
     the infimum of coupling costs. *)
-Definition kantorovich_metric {R : realType} {X : finType}
+Definition kantorovich_lifting {R : realType} {X : finType}
     (d : X -> X -> R)
     (mu nu : probability_distribution R X) : R :=
   inf [set r : R | exists gamma : coupling mu nu,
     r = coupling_cost d gamma].
+
+Lemma fuzzy_kantorovich_lifting {R : realType} {X : finType}
+    (d : X -> X -> R)
+    (mu nu : probability_distribution R X) :
+  (forall x y, 0 <= d x y <= 1) -> 0 <= kantorovich_lifting d mu nu <= 1.
+Proof.
+  move=> Hd.
+  rewrite /kantorovich_lifting.
+  set costs : set R := fun r => exists gamma : coupling mu nu,
+    r = coupling_cost d gamma.
+  have Hne : (costs !=set0)%classic.
+  { exists (coupling_cost d (independent_coupling mu nu)).
+    rewrite /costs.
+    exists (independent_coupling mu nu).
+    reflexivity. }
+  have Hlb : lbound costs 0.
+  { apply/lbP => r.
+    rewrite /costs.
+    move=> [gamma ->].
+    rewrite /coupling_cost.
+    apply: sumr_ge0 => x _.
+    apply: sumr_ge0 => y _.
+    have /andP [Hd0 _] := Hd x y.
+    exact: mulr_ge0
+      (joint_probability_mass_ge0 (coupling_distribution gamma) x y) Hd0. }
+  apply/andP; split.
+  - exact: lb_le_inf Hne Hlb.
+  - set gamma := independent_coupling mu nu.
+    have Hinf_cost : inf costs <= coupling_cost d gamma.
+    { have Hhaslb : has_lbound costs by exists 0.
+      have Hinf := ge_inf Hhaslb.
+      apply: Hinf.
+      rewrite /costs.
+      exists gamma.
+      reflexivity. }
+    apply: (le_trans Hinf_cost).
+    rewrite /coupling_cost.
+    rewrite -(joint_probability_mass_total (coupling_distribution gamma)).
+    apply: ler_sum => x _.
+    apply: ler_sum => y _.
+    have /andP [_ Hd1] := Hd x y.
+    have Hmass0 :=
+      joint_probability_mass_ge0 (coupling_distribution gamma) x y.
+    have Hmul :
+        coupling_distribution gamma x y * d x y <=
+        coupling_distribution gamma x y * 1 :=
+      ler_wpM2l Hmass0 Hd1.
+    by rewrite mulr1 in Hmul.
+Qed.
 
 Definition weighted_sum {R : realType}
     (p : probability_weight R) (x y : R) : R :=
