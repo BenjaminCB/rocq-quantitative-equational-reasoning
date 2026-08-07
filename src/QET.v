@@ -21,22 +21,22 @@ Local Open Scope ring_scope.
 Local Open Scope ereal_scope.
 Local Open Scope classical_set_scope.
 
-Notation Enn e := (0 <= e)%E.
+Notation Rnn r := (0 <= r)%R.
 
-Lemma Enn_add {R : realType} : forall p q : \bar R,
-  Enn p -> Enn q -> Enn (p + q).
-Proof. exact: adde_ge0. Qed.
+Lemma Rnn_add {R : realType} : forall p q : R,
+  Rnn p -> Rnn q -> Rnn (p + q).
+Proof. apply: addr_ge0. Qed.
 
-Lemma Enn_zero {R : realType} : Enn (0 : \bar R).
+Lemma Rnn_zero {R : realType} : Rnn (0 : R).
 Proof. apply: lexx. Qed.
 
-Definition nonneg_ereal (R : realType) := {e : \bar R | Enn e}.
+Definition nonneg_real (R : realType) := {r : R | Rnn r}.
 
-Definition nonneg_ereal_val {R : realType} (eps : nonneg_ereal R) : \bar R :=
+Definition nonneg_real_val {R : realType} (eps : nonneg_real R) : R :=
   sval eps.
 
-Lemma nonneg_ereal_val_ge0 {R : realType} (eps : nonneg_ereal R) :
-  (0 <= nonneg_ereal_val eps)%E.
+Lemma nonneg_real_val_ge0 {R : realType} (eps : nonneg_real R) :
+  (0 <= nonneg_real_val eps)%R.
 Proof. exact: (svalP eps). Qed.
 
 (* ============================================================
@@ -94,7 +94,7 @@ Qed.
 Record qeq (R : realType) (sig : signature) (X : Type) := {
   lhs : term sig X;
   rhs : term sig X;
-  eps : \bar R;
+  eps : R;
 }.
 
 Notation "t ~[ e ] s" := {| lhs := t; rhs := s; eps := e |}
@@ -120,26 +120,26 @@ Inductive derives {R : realType} {sig} (U : axiom_scheme R sig)
   | D_Refl : forall X Gamma t,
       @derives R sig U X Gamma (t ~[0] t)
   | D_Symm : forall X Gamma t s eps,
-      Enn eps ->
+      Rnn eps ->
       @derives R sig U X Gamma (t ~[eps] s) ->
       @derives R sig U X Gamma (s ~[eps] t)
   | D_Triang : forall X Gamma t s u eps eps',
-      Enn eps -> Enn eps' ->
+      Rnn eps -> Rnn eps' ->
       @derives R sig U X Gamma (t ~[eps] s) ->
       @derives R sig U X Gamma (s ~[eps'] u) ->
       @derives R sig U X Gamma (t ~[eps + eps'] u)
   | D_Max : forall X Gamma t s eps eps',
-      Enn eps -> (0 < eps')%E ->
+      Rnn eps -> (0 < eps')%R ->
       @derives R sig U X Gamma (t ~[eps] s) ->
       @derives R sig U X Gamma (t ~[eps + eps'] s)
   | D_Arch : forall X Gamma t s eps,
-      Enn eps ->
-      (forall eps', (eps < eps')%E ->
+      Rnn eps ->
+      (forall eps', (eps < eps')%R ->
         @derives R sig U X Gamma (t ~[eps'] s)) ->
       @derives R sig U X Gamma (t ~[eps] s)
   | D_NExp : forall X Gamma (f : sym sig)
                      (ts ss : 'I_(arity f) -> term sig X) eps,
-      Enn eps ->
+      Rnn eps ->
       (forall i, @derives R sig U X Gamma (ts i ~[eps] ss i)) ->
       @derives R sig U X Gamma (App f ts ~[eps] App f ss)
   | D_Subst : forall X Y Gamma t s eps
@@ -165,8 +165,8 @@ Arguments D_Subst {R sig U X Y Gamma t s eps} sigma _.
 Arguments D_Axiom {R sig U X Gamma phi} _.
 
 Lemma subst_term_nexp {R : realType} {sig X Y} (U : axiom_scheme R sig)
-    (eps : \bar R) (sigma tau : X -> term sig Y) (t : term sig X) :
-  Enn eps ->
+    (eps : R) (sigma tau : X -> term sig Y) (t : term sig X) :
+  Rnn eps ->
   (forall x, @derives R sig U Y [::] (sigma x ~[eps] tau x)) ->
   @derives R sig U Y [::] (subst_term sigma t ~[eps] subst_term tau t).
 Proof.
@@ -183,27 +183,27 @@ Qed.
 
 Definition d_U {R : realType} {sig X} (U : axiom_scheme R sig)
     (s t : term sig X) : \bar R :=
-  extended_infimum (@nonneg_ereal_val R) (
-    fun eps => derives U [::] (s ~[nonneg_ereal_val eps] t)
+  extended_infimum (@nonneg_real_val R) (
+    fun eps => derives U [::] (s ~[nonneg_real_val eps] t)
   ).
 
 Definition gamma_U {R : realType} {sig X} (U : axiom_scheme R sig)
     (s t : term sig X) : \bar R :=
-  extended_infimum (@nonneg_ereal_val R) (
-    fun eps => forall Gamma, derives U Gamma (s ~[nonneg_ereal_val eps] t)
+  extended_infimum (@nonneg_real_val R) (
+    fun eps => forall Gamma, derives U Gamma (s ~[nonneg_real_val eps] t)
   ).
 
 Definition delta_U {R : realType} {sig X} (U : axiom_scheme R sig)
     (s t : term sig X) : \bar R :=
-  extended_infimum (@nonneg_ereal_val R) (
-    fun eps => exists Gamma, derives U Gamma (s ~[nonneg_ereal_val eps] t)
+  extended_infimum (@nonneg_real_val R) (
+    fun eps => exists Gamma, derives U Gamma (s ~[nonneg_real_val eps] t)
   ).
 
 Lemma delta_U_context_witness {R : realType} {sig X}
-    (U : axiom_scheme R sig) (s t : term sig X) (eps : nonneg_ereal R) :
-  exists Gamma, derives U Gamma (s ~[nonneg_ereal_val eps] t).
+    (U : axiom_scheme R sig) (s t : term sig X) (eps : nonneg_real R) :
+  exists Gamma, derives U Gamma (s ~[nonneg_real_val eps] t).
 Proof.
-  exists [:: s ~[nonneg_ereal_val eps] t].
+  exists [:: s ~[nonneg_real_val eps] t].
   apply: D_Assumpt.
   by left.
 Qed.
@@ -217,21 +217,24 @@ Proof.
   apply/andP; split.
   - apply: ge_ereal_inf.
     exists (0%:E : \bar R); [ | apply lexx].
-    exists (exist _ (0%:E : \bar R) Enn_zero).
+    exists (0 : R)%R; [ | by []].
+    exists (exist _ (0 : R)%R Rnn_zero).
     split.
     + apply: delta_U_context_witness.
     + reflexivity.
   - rewrite /delta_U /extended_infimum.
     have Hlb :
         (0%R <= ereal_inf
-          (bound_set (@nonneg_ereal_val R)
-            (fun eps : nonneg_ereal R =>
+          (EFin @` bound_set (@nonneg_real_val R)
+            (fun eps : nonneg_real R =>
               exists Gamma : ctx R sig X,
-                derives U Gamma (s ~[nonneg_ereal_val eps] t))))%E.
-    { apply/ereal_infP => y Hy.
-      case: Hy => eps [_ Hr].
+                derives U Gamma (s ~[nonneg_real_val eps] t))))%E.
+    { apply/ereal_infP => y Himg.
+      case: Himg => r Hb <-.
+      case: Hb => eps [_ Hr].
       rewrite Hr.
-      exact: nonneg_ereal_val_ge0.
+      apply: lee_tofin.
+      exact: nonneg_real_val_ge0.
     }
     exact Hlb.
 Qed.
@@ -253,13 +256,23 @@ Proof.
   rewrite /gamma_U /d_U /extended_infimum /bound_set.
   congr ereal_inf.
   apply/seteqP; split=> r.
-  - move=> [eps [Hderive Hr]].
-    exists eps; split; last exact Hr.
-    exact: (Hderive [::]).
-  - move=> [eps [Hderive Hr]].
-    exists eps; split; last exact Hr.
-    move=> Gamma.
-    exact: derives_empty_cut Hderive.
+  - move=> H.
+    case: H => x Hbound Hfin.
+    move: Hbound => [eps [Hderive Hx]].
+    exists x.
+    + exists eps; split.
+      * exact: (Hderive [::]).
+      * exact Hx.
+    + exact Hfin.
+  - move=> H.
+    case: H => x Hbound Hfin.
+    move: Hbound => [eps [Hderive Hx]].
+    exists x.
+    + exists eps; split.
+      * move=> Gamma.
+        exact: derives_empty_cut Hderive.
+      * exact Hx.
+    + exact Hfin.
 Qed.
 
 Lemma d_U_refl {R : realType} {sig X}
@@ -271,15 +284,18 @@ Proof.
   - rewrite /d_U /extended_infimum.
     apply: ge_ereal_inf.
     exists (0%:E : \bar R); last exact: lexx.
-    exists (exist _ (0%:E : \bar R) Enn_zero).
+    exists (0 : R)%R; last by [].
+    exists (exist _ (0 : R)%R Rnn_zero).
     split.
     + exact: D_Refl.
     + reflexivity.
   - rewrite /d_U /extended_infimum.
-    apply/ereal_infP => y Hy.
-    case: Hy => eps [_ Hr].
+    apply/ereal_infP => y Himg.
+    case: Himg => r Hb <-.
+    case: Hb => eps [_ Hr].
     rewrite Hr.
-    exact: nonneg_ereal_val_ge0.
+    apply: lee_tofin.
+    exact: nonneg_real_val_ge0.
 Qed.
 
 Lemma d_U_symm {R : realType} {sig X}
@@ -289,14 +305,24 @@ Proof.
   rewrite /d_U /extended_infimum /bound_set.
   congr ereal_inf.
   apply/seteqP; split=> r.
-  - move=> [eps [Hderive Hr]].
-    exists eps; split; last exact Hr.
-    apply: D_Symm; first exact: (svalP eps).
-    exact Hderive.
-  - move=> [eps [Hderive Hr]].
-    exists eps; split; last exact Hr.
-    apply: D_Symm; first exact: (svalP eps).
-    exact Hderive.
+  - move=> H.
+    case: H => x Hbound Hfin.
+    move: Hbound => [eps [Hderive Hx]].
+    exists x.
+    + exists eps; split.
+      * apply: D_Symm; first exact: (svalP eps).
+        exact Hderive.
+      * exact Hx.
+    + exact Hfin.
+  - move=> H.
+    case: H => x Hbound Hfin.
+    move: Hbound => [eps [Hderive Hx]].
+    exists x.
+    + exists eps; split.
+      * apply: D_Symm; first exact: (svalP eps).
+        exact Hderive.
+      * exact Hx.
+    + exact Hfin.
 Qed.
 
 Lemma d_U_nonneg {R : realType} {sig X}
@@ -304,22 +330,25 @@ Lemma d_U_nonneg {R : realType} {sig X}
   0 <= @d_U R sig X U s t.
 Proof.
   rewrite /d_U /extended_infimum.
-  apply/ereal_infP => y Hy.
-  case: Hy => eps [_ Hr].
+  apply/ereal_infP => y Himg.
+  case: Himg => r Hb <-.
+  case: Hb => eps [_ Hr].
   rewrite Hr.
-  exact: nonneg_ereal_val_ge0.
+  apply: lee_tofin.
+  exact: nonneg_real_val_ge0.
 Qed.
 
 Lemma d_U_le_derives {R : realType} {sig X}
-    (U : axiom_scheme R sig) (s t : term sig X) (eps : \bar R) :
-  Enn eps ->
+    (U : axiom_scheme R sig) (s t : term sig X) (eps : R) :
+  Rnn eps ->
   derives U [::] (s ~[eps] t) ->
-  @d_U R sig X U s t <= eps.
+  @d_U R sig X U s t <= eps%:E.
 Proof.
   move=> Heps Hderive.
   rewrite /d_U /extended_infimum.
   apply: ge_ereal_inf.
-  exists eps; last exact: lexx.
+  exists (eps%:E : \bar R); last exact: lexx.
+  exists eps; last by [].
   exists (exist _ eps Heps).
   split; first exact Hderive.
   reflexivity.
@@ -359,16 +388,17 @@ Proof.
 Qed.
 
 Lemma d_U_tri_bound {R : realType} {sig X}
-    (U : axiom_scheme R sig) (s t u : term sig X) (eps eps' : \bar R) :
-  Enn eps ->
-  Enn eps' ->
+    (U : axiom_scheme R sig) (s t u : term sig X) (eps eps' : R) :
+  Rnn eps ->
+  Rnn eps' ->
   derives U [::] (s ~[eps] t) ->
   derives U [::] (t ~[eps'] u) ->
-  @d_U R sig X U s u <= eps + eps'.
+  @d_U R sig X U s u <= eps%:E + eps'%:E.
 Proof.
   move=> Heps Heps' Hst Htu.
+  rewrite -EFinD.
   apply: d_U_le_derives.
-  - exact: Enn_add.
+  - exact: Rnn_add.
   - exact: (D_Triang Heps Heps' Hst Htu).
 Qed.
 
@@ -388,24 +418,21 @@ Proof.
       have [y HyS Hylt] := lb_ereal_inf_adherent e2pos Bfin.
       rewrite /A /d_U /extended_infimum /bound_set in HxS Hxlt.
       rewrite /B /d_U /extended_infimum /bound_set in HyS Hylt.
-      case: HxS Hxlt => eps [Hst Hrx] Hxlt.
-      rewrite Hrx /nonneg_ereal_val in Hxlt.
-      case: HyS Hylt => eps' [Htu Hry] Hylt.
-      rewrite Hry /nonneg_ereal_val in Hylt.
+      case: HxS Hxlt => rx Hrx <- Hxlt.
+      case: Hrx => eps [Hst Hrx].
+      rewrite Hrx /nonneg_real_val in Hxlt.
+      case: HyS Hylt => ry Hry <- Hylt.
+      case: Hry => eps' [Htu Hry].
+      rewrite Hry /nonneg_real_val in Hylt.
       apply: (le_trans (@d_U_tri_bound R sig X U s t u
-        (nonneg_ereal_val eps) (nonneg_ereal_val eps')
+        (nonneg_real_val eps) (nonneg_real_val eps')
         (svalP eps) (svalP eps') Hst Htu)).
       have Hsumlt :
-        (nonneg_ereal_val eps +
-         nonneg_ereal_val eps' <
+        ((nonneg_real_val eps)%:E +
+         (nonneg_real_val eps')%:E <
          (A + (e / 2)%:E) + (B + (e / 2)%:E))%E.
       { apply: lte_leD; last exact: ltW Hylt.
-        - rewrite (ge0_fin_numE (svalP eps')).
-          apply: (lt_trans Hylt).
-          rewrite ltey.
-          have Hfin : B + (e / 2)%:E \is a fin_num by
-            rewrite fin_numD Bfin.
-          by move/fin_numP: Hfin => [_ Hnotpinfty].
+        - by [].
         - exact Hxlt. }
       apply: ltW.
       apply: (lt_le_trans Hsumlt).

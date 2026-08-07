@@ -74,8 +74,8 @@ Inductive LIB_rule {R : realType} {X : Type} :
         ((Var x <+ e +> Var y) <+ e' +> Var z ~[0]
          Var x <+ ee' +> (Var y <+ skew +> Var z))
   | LIB_LI : forall (e : bary_weight) eps x x' x'',
-      Enn eps ->
-      ((ratr (bw e) : R)%:E <= eps)%E ->
+      Rnn eps ->
+      ((ratr (bw e) : R) <= eps)%R ->
       LIB_rule [::]
         (Var x' <+ e +> Var x ~[eps] Var x'' <+ e +> Var x).
 
@@ -132,7 +132,7 @@ Proof.
       apply: ge_ereal_inf; exists 0; last by apply lexx.
       rewrite /bound_set /mkset.
       exists (0 : R)%R; last by [].
-      exists (exist _ (0%:E : \bar R) Enn_zero).
+      exists (exist _ (0 : R)%R Rnn_zero).
       split.
       * exact: D_Refl.
       * reflexivity.

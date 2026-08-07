@@ -2,8 +2,7 @@
    MathComp Analysis backend for quantitative metric structure
 
    This file provides the MathComp Analysis infrastructure shared by
-   the extended-real-indexed quantitative equations and their induced
-   metrics.
+   the real-indexed quantitative equations and their induced metrics.
    ============================================================ *)
 
 From HB Require Import structures.
@@ -40,8 +39,8 @@ Record ext_metric_space (R : realType) := {
 }.
 
 Definition dist_le {R : realType} (M : ext_metric_space R)
-    (a b : carrier M) (eps : \bar R) : Prop :=
-  dist a b <= eps.
+    (a b : carrier M) (eps : R) : Prop :=
+  dist a b <= eps%:E.
 
 Definition algebra_ops {R : realType} (Sym : Type) (arity : Sym -> nat)
     (M : ext_metric_space R) : Type :=
@@ -49,24 +48,24 @@ Definition algebra_ops {R : realType} (Sym : Type) (arity : Sym -> nat)
 
 Definition non_expansive {R : realType} {Sym : Type} {arity : Sym -> nat}
     (M : ext_metric_space R) (ops : algebra_ops arity M) : Prop :=
-  forall f (xs ys : ordinal (arity f) -> carrier M) (eps : \bar R),
-    (0 <= eps)%E ->
+  forall f (xs ys : ordinal (arity f) -> carrier M) (eps : R),
+    (0 <= eps)%R ->
     (forall i, dist_le (xs i) (ys i) eps) ->
     dist_le (ops f xs) (ops f ys) eps.
 
-(** The set of extended-real bounds associated to a proof-indexed
-    family.  For quantitative equations the index type is the
-    non-negative part of [\bar R] and [embed] is its first projection. *)
+(** The set of real bounds associated to a proof-indexed family.  For
+    quantitative equations the index type is the non-negative part of
+    the ambient real type and [embed] is its first projection. *)
 Definition bound_set {R : realType} {I : Type}
-    (embed : I -> \bar R) (P : I -> Prop) : set (\bar R) :=
+    (embed : I -> R) (P : I -> Prop) : set R :=
   [set r | exists i, P i /\ r = embed i].
 
 Definition extended_infimum {R : realType} {I : Type}
-    (embed : I -> \bar R) (P : I -> Prop) : \bar R :=
-  ereal_inf (bound_set embed P).
+    (embed : I -> R) (P : I -> Prop) : \bar R :=
+  ereal_inf (EFin @` bound_set embed P).
 
 Definition has_bound_infimum {R : realType} {I : Type}
-    (embed : I -> \bar R) (P : I -> Prop) (r : \bar R) : Prop :=
+    (embed : I -> R) (P : I -> Prop) (r : \bar R) : Prop :=
   r = extended_infimum embed P.
 
 Definition finite_support {T : choiceType} : Type := {fset T}.
