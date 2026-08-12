@@ -139,14 +139,14 @@
 
         wasmWasiCoreExtension =
           pkgs.vscode-utils.buildVscodeMarketplaceExtension
-            {
-              mktplcRef = {
-                name = "wasm-wasi-core";
-                publisher = "ms-vscode";
-                version = "1.0.2";
-                hash = "sha256-hrzPNPaG8LPNMJq/0uyOS8jfER1Q0CyFlwR42KmTz8g=";
-              };
+          {
+            mktplcRef = {
+              name = "wasm-wasi-core";
+              publisher = "ms-vscode";
+              version = "1.0.2";
+              hash = "sha256-hrzPNPaG8LPNMJq/0uyOS8jfER1Q0CyFlwR42KmTz8g=";
             };
+          };
 
         vscode = pkgs.vscode-with-extensions.override {
           vscode = pkgs.vscode;
