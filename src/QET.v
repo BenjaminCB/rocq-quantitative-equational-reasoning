@@ -9,6 +9,7 @@ From mathcomp Require Import ssreflect ssrfun ssrbool eqtype seq choice fintype.
 From mathcomp Require Import order ssralg ssrnum archimedean reals ereal.
 From mathcomp Require Import classical_sets.
 
+From Template Require Export Signature.
 From Template Require Import Metric Category.
 
 Set Implicit Arguments.
@@ -38,54 +39,6 @@ Definition nonneg_real_val {R : realType} (eps : nonneg_real R) : R :=
 Lemma nonneg_real_val_ge0 {R : realType} (eps : nonneg_real R) :
   (0 <= nonneg_real_val eps)%R.
 Proof. exact: (svalP eps). Qed.
-
-(* ============================================================
-   Signatures, terms, and substitution
-   ============================================================ *)
-
-Record signature := {
-  sym : Type;
-  arity : sym -> nat;
-}.
-
-Inductive term (sig : signature) (X : Type) : Type :=
-  | Var : X -> term sig X
-  | App : forall f : sym sig, ('I_(arity f) -> term sig X) -> term sig X.
-
-Arguments Var {sig X} _.
-Arguments App {sig X} _ _.
-
-Fixpoint subst_term {sig X Y} (sigma : X -> term sig Y)
-    (t : term sig X) : term sig Y :=
-  match t with
-  | Var x => sigma x
-  | App f args => App f (subst_term sigma \o args)
-  end.
-
-Definition subst_comp {sig X Y Z}
-    (sigma : Y -> term sig Z) (tau : X -> term sig Y) :
-    X -> term sig Z :=
-  subst_term sigma \o tau.
-
-Lemma subst_term_comp {sig X Y Z}
-    (sigma : Y -> term sig Z) (tau : X -> term sig Y)
-    (t : term sig X) :
-  subst_term sigma (subst_term tau t) = subst_term (subst_comp sigma tau) t.
-Proof.
-  elim: t => [x | f args IH] //=.
-  congr App.
-  apply functional_extensionality => i.
-  apply: IH.
-Qed.
-
-Lemma subst_term_var {sig X} (t : term sig X) :
-  subst_term Var t = t.
-Proof.
-  elim: t => [x | f args IH] //=.
-  congr App.
-  apply functional_extensionality => i.
-  exact: IH.
-Qed.
 
 (* ============================================================
    Quantitative equations and axiom schemes
@@ -186,8 +139,8 @@ Qed.
     interpreted operations are non-expansive. *)
 Record QAlgebra (R : realType) (sig : signature) := {
   qa_metric : ext_metric_space R;
-  qa_ops : algebra_ops (@arity sig) qa_metric;
-  qa_nexp : non_expansive qa_ops;
+  qa_ops : algebra_ops sig (carrier qa_metric);
+  qa_nexp : non_expansive (M := qa_metric) qa_ops;
 }.
 
 Definition qa_carrier {R sig} (A : QAlgebra R sig) : Type :=

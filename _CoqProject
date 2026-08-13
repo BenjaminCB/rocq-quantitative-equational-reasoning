@@ -1,5 +1,7 @@
 -Q src Template
+src/Signature.v
 src/Metric.v
 src/ProbabilityDistribution.v
 src/Category.v
 src/QET.v
+src/FuzzyRelation.v

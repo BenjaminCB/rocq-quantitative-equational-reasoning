@@ -10,6 +10,8 @@ From mathcomp Require Import ssreflect ssrbool choice fintype.
 From mathcomp Require Import order ssralg ssrnum archimedean finmap reals ereal.
 From mathcomp Require Import classical_sets.
 
+From Template Require Import Signature.
+
 Set Implicit Arguments.
 Unset Strict Implicit.
 Unset Printing Implicit Defensive.
@@ -42,12 +44,8 @@ Definition dist_le {R : realType} (M : ext_metric_space R)
     (a b : carrier M) (eps : R) : Prop :=
   dist a b <= eps%:E.
 
-Definition algebra_ops {R : realType} (Sym : Type) (arity : Sym -> nat)
-    (M : ext_metric_space R) : Type :=
-  forall f : Sym, (ordinal (arity f) -> carrier M) -> carrier M.
-
-Definition non_expansive {R : realType} {Sym : Type} {arity : Sym -> nat}
-    (M : ext_metric_space R) (ops : algebra_ops arity M) : Prop :=
+Definition non_expansive {R : realType} {sig : signature}
+    (M : ext_metric_space R) (ops : algebra_ops sig (carrier M)) : Prop :=
   forall f (xs ys : ordinal (arity f) -> carrier M) (eps : R),
     (0 <= eps)%R ->
     (forall i, dist_le (xs i) (ys i) eps) ->
