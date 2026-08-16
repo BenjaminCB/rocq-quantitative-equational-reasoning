@@ -78,3 +78,12 @@ Proof.
   apply functional_extensionality.
   apply H.
 Qed.
+
+Definition fuzzy_theory (R : realType) (sig : signature) :=
+  forall X : fuzzy_space R,
+    @judgement R sig (fcarrier X) -> Prop.
+
+Definition fuzzy_models {R : realType} {sig}
+    (A : FuzzyAlgebra R sig)
+    (E : fuzzy_theory R sig) : Prop :=
+  forall X phi, E X phi -> satisfies A X phi.

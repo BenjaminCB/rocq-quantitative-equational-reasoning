@@ -5,3 +5,4 @@ src/ProbabilityDistribution.v
 src/Category.v
 src/QET.v
 src/FuzzyRelation.v
+src/FRelDeduction.v
