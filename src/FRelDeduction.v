@@ -95,3 +95,110 @@ Definition derives_full {R : realType} {sig : signature}
     (E : fuzzy_theory R sig) (X : fuzzy_space R)
     (phi : @judgement R sig (fcarrier X)) : Prop :=
   frel_derives E FRelFull phi.
+
+Lemma derives_fin_to_full
+    {R : realType} {sig : signature}
+    (E : fuzzy_theory R sig)
+    (X : fuzzy_space R)
+    (phi : @judgement R sig (fcarrier X)) :
+  derives_fin E phi ->
+  derives_full E phi.
+Proof.
+  rewrite /derives_fin /derives_full.
+  move => H.
+  induction H; eauto using frel_derives.
+Qed. 
+
+Definition fuzzy_theory_incl
+    {R : realType} {sig : signature}
+    (E F : fuzzy_theory R sig) : Prop :=
+  forall (X : fuzzy_space R)
+    (phi : @judgement R sig (fcarrier X)),
+    E X phi -> F X phi.
+
+Lemma frel_derives_weakening
+    {R : realType} {sig : signature}
+    (E F : fuzzy_theory R sig)
+    (mode : frel_derivation_mode)
+    (X : fuzzy_space R)
+    (phi : @judgement R sig (fcarrier X)) :
+  fuzzy_theory_incl E F ->
+  frel_derives E mode phi ->
+  frel_derives F mode phi.
+Proof.
+  rewrite /fuzzy_theory_incl.
+  move => Hincl H.
+  induction H.
+  - apply: FD_Init.
+    apply: Hincl.
+    exact: H.
+  all: eauto using frel_derives.
+Qed. 
+
+(** Replace each use of an [E]-axiom by an [F]-derivation. *)
+Lemma frel_derives_cut
+    {R : realType} {sig : signature}
+    (E F : fuzzy_theory R sig)
+    (mode : frel_derivation_mode)
+    (X : fuzzy_space R)
+    (phi : @judgement R sig (fcarrier X)) :
+  (forall (Y : fuzzy_space R)
+    (psi : @judgement R sig (fcarrier Y)),
+    E Y psi -> frel_derives F mode psi) ->
+  frel_derives E mode phi ->
+  frel_derives F mode phi.
+Proof.
+  move => Hcut Hderive.
+  induction Hderive.
+  - apply: Hcut X phi H.
+  all: eauto using frel_derives.
+Qed.
+
+(** Semantic substitution.  The quantitative premises say that
+    evaluating [sigma] under any interpretation produces a nonexpansive map
+    out of [X]. *)
+Lemma satisfies_subst
+    {R : realType} {sig : signature}
+    (A : FuzzyAlgebra R sig)
+    (X Y : fuzzy_space R)
+    (sigma : fcarrier X -> term sig (fcarrier Y))
+    (phi : @judgement R sig (fcarrier X)) :
+  satisfies A X phi ->
+  (forall x y,
+    satisfies A Y
+      (@QEqJ R sig (fcarrier Y) (frel X x y) (sigma x) (sigma y))) ->
+  satisfies A Y (subst_judgement sigma phi).
+Admitted.
+
+(** Soundness of the calculus without order completeness. *)
+Theorem derives_fin_sound
+    {R : realType} {sig : signature}
+    (A : FuzzyAlgebra R sig)
+    (E : fuzzy_theory R sig)
+    (X : fuzzy_space R)
+    (phi : @judgement R sig (fcarrier X)) :
+  fuzzy_models A E ->
+  @derives_fin R sig E X phi ->
+  satisfies A X phi.
+Admitted.
+
+(** A scalar is below [eps] when it is below every strict upper
+    approximation of [eps]. *)
+Lemma le_of_all_strict_upper_bounds
+    {R : realType} (a eps : R) :
+  (forall delta, (eps < delta)%R -> (a <= delta)%R) ->
+  (a <= eps)%R.
+Admitted.
+
+(** Soundness of the full calculus.  Its additional induction
+    case uses [le_of_all_strict_upper_bounds]. *)
+Theorem derives_full_sound
+    {R : realType} {sig : signature}
+    (A : FuzzyAlgebra R sig)
+    (E : fuzzy_theory R sig)
+    (X : fuzzy_space R)
+    (phi : @judgement R sig (fcarrier X)) :
+  fuzzy_models A E ->
+  @derives_full R sig E X phi ->
+  satisfies A X phi.
+Admitted.
