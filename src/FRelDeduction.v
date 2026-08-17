@@ -135,7 +135,6 @@ Proof.
   all: eauto using frel_derives.
 Qed. 
 
-(** Replace each use of an [E]-axiom by an [F]-derivation. *)
 Lemma frel_derives_cut
     {R : realType} {sig : signature}
     (E F : fuzzy_theory R sig)
@@ -154,9 +153,6 @@ Proof.
   all: eauto using frel_derives.
 Qed.
 
-(** Semantic substitution.  The quantitative premises say that
-    evaluating [sigma] under any interpretation produces a nonexpansive map
-    out of [X]. *)
 Lemma satisfies_subst
     {R : realType} {sig : signature}
     (A : FuzzyAlgebra R sig)
@@ -168,9 +164,23 @@ Lemma satisfies_subst
     satisfies A Y
       (@QEqJ R sig (fcarrier Y) (frel X x y) (sigma x) (sigma y))) ->
   satisfies A Y (subst_judgement sigma phi).
-Admitted.
+Proof.
+  rewrite /satisfies.
+  move => Hphi Hsat rho.
 
-(** Soundness of the calculus without order completeness. *)
+  have Hnexp : frel_nonexpansive X (fa_space A)
+      (fun z => fuzzy_eval A rho (sigma z)).
+    move => u v.
+    exact: Hsat u v rho.
+
+  pose rho_sigma := @Build_interpretation R sig X A
+    (fun z => fuzzy_eval A rho (sigma z)) Hnexp.
+
+  case: phi Hphi => [s t | eps s t] Hphi /=;
+    rewrite !fuzzy_eval_subst;
+    exact: Hphi rho_sigma.
+Qed.
+
 Theorem derives_fin_sound
     {R : realType} {sig : signature}
     (A : FuzzyAlgebra R sig)
@@ -182,16 +192,12 @@ Theorem derives_fin_sound
   satisfies A X phi.
 Admitted.
 
-(** A scalar is below [eps] when it is below every strict upper
-    approximation of [eps]. *)
 Lemma le_of_all_strict_upper_bounds
     {R : realType} (a eps : R) :
   (forall delta, (eps < delta)%R -> (a <= delta)%R) ->
   (a <= eps)%R.
 Admitted.
 
-(** Soundness of the full calculus.  Its additional induction
-    case uses [le_of_all_strict_upper_bounds]. *)
 Theorem derives_full_sound
     {R : realType} {sig : signature}
     (A : FuzzyAlgebra R sig)
