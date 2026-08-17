@@ -2,9 +2,12 @@
    Deduction over fuzzy relations
    ============================================================ *)
 
-From mathcomp Require Import ssreflect ssrfun ssrbool ssralg ssrnum reals fintype.
+From mathcomp Require Import ssreflect ssrfun ssrbool ssralg ssrnum reals fintype preorder.
+From Stdlib Require Import Logic.FunctionalExtensionality.
 
 From Template Require Import Signature FuzzyRelation.
+
+Import preorder.Order.PreorderTheory.
 
 Set Implicit Arguments.
 Unset Strict Implicit.
@@ -190,7 +193,39 @@ Theorem derives_fin_sound
   fuzzy_models A E ->
   @derives_fin R sig E X phi ->
   satisfies A X phi.
-Admitted.
+Proof.
+  rewrite /fuzzy_models /satisfies /derives_fin.
+  move => Hmodel Hderive rho.
+  remember FRelFinite as mode eqn:Hmode in Hderive.
+  revert Hmode.
+  induction Hderive; intros Hmode.
+  - apply: Hmodel X phi H rho.
+  - by [].
+  - symmetry.
+    exact: IHHderive rho Hmode.
+  - by rewrite (IHHderive1 rho Hmode) (IHHderive2 rho Hmode).
+  - move => //=.
+    congr fa_ops; apply functional_extensionality.
+    move => i.
+    apply: H0 i rho Hmode.
+  - move => //=.
+    apply: (interpretation_nexp rho).
+  - move: rho.
+    change (satisfies A Y (subst_judgement sigma phi)).
+    apply: satisfies_subst.
+    - move => rho.
+      exact: IHHderive rho Hmode.
+    - move => x y rho.
+      exact: H0 x y rho Hmode.
+  - rewrite (IHHderive1 rho Hmode).
+    apply: IHHderive2 rho Hmode.
+  - rewrite -(IHHderive2 rho Hmode).
+    apply: IHHderive1 rho Hmode.
+  - apply: le_trans (IHHderive rho Hmode) H.
+  - apply: (andP (frel_range (fa_space A)
+    (fuzzy_eval A rho s) (fuzzy_eval A rho t))).2.
+  - discriminate Hmode.
+Qed.
 
 Lemma le_of_all_strict_upper_bounds
     {R : realType} (a eps : R) :
