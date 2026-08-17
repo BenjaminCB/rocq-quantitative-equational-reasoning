@@ -6,3 +6,4 @@ src/Category.v
 src/QET.v
 src/FuzzyRelation.v
 src/FRelDeduction.v
+src/ICA.v
