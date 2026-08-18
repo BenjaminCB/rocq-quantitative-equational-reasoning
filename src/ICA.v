@@ -87,3 +87,68 @@ Proof.
     have /andP [_ Hq1] := ica_weight_open q.
     apply: Hq1.
 Qed.
+
+
+Definition ica_full_space (R : realType) (n : nat) : fuzzy_space R.
+Proof.
+  refine {| fcarrier := 'I_n; frel := fun _ _ => 1 |}.
+  by move => i j; rewrite ler01 lexx.
+Defined.
+
+(*
+[ 1, 1, eps, 1     ]
+[ 1, 1, 1,   delta ]
+[ 1, 1, 1,   1     ]
+[ 1, 1, 1,   1     ]
+*)
+Definition ica_interp_rel {R : realType}
+    (eps delta : R) (a b : 'I_4) : R :=
+  match nat_of_ord a, nat_of_ord b with
+  | 0, 2 => eps
+  | 1, 3 => delta
+  | _, _ => 1
+  end.
+
+Definition ica_interp_space (R : realType) 
+  (eps delta : R)
+  (Heps : (0 <= eps <= 1)%R)
+  (Hdelta : (0 <= delta <= 1)%R) : fuzzy_space R.
+Proof.
+  refine {| fcarrier := 'I_4; frel := ica_interp_rel eps delta |}.
+  move => i j.
+  rewrite /ica_interp_rel.
+  case: (nat_of_ord i) => [ | [ | i' ] ];
+  case: (nat_of_ord j) => [ | [ | [ | [ | j' ] ] ] ] /=.
+  3: apply: Heps.
+  8: apply: Hdelta.
+  all: by rewrite ler01 lexx.
+Defined.
+
+Inductive ica_theory (R : realType) : fuzzy_theory R (@ica_signature R) :=
+  | ICA_Idem (p : ica_weight R) :
+      @ica_theory R (ica_full_space R 1)
+        (EqJ
+          ((Var (inord 0)) <+ p +> (Var (inord 0)))
+          (Var (inord 0)))
+  | ICA_Skew_Comm (p : ica_weight R) :
+      @ica_theory R (ica_full_space R 2)
+        (EqJ
+          ((Var (inord 0)) <+ p +> (Var (inord 1)))
+          ((Var (inord 1)) <+ ica_weight_complement p +>
+            (Var (inord 0))))
+  | ICA_Skew_Assoc (p q : ica_weight R) :
+      @ica_theory R (ica_full_space R 3)
+        (EqJ
+          (((Var (inord 0)) <+ p +> (Var (inord 1))) <+ q +>
+            (Var (inord 2)))
+          ((Var (inord 0)) <+ ica_weight_product p q +>
+            ((Var (inord 1)) <+ ica_weight_assoc_inner p q +>
+              (Var (inord 2)))))
+  | ICA_Interp (p : ica_weight R) (eps delta : R)
+      (Heps : (0 <= eps <= 1)%R)
+      (Hdelta : (0 <= delta <= 1)%R) :
+      @ica_theory R (@ica_interp_space R eps delta Heps Hdelta)
+        (QEqJ
+          (weighted_sum (ica_probability_weight p) eps delta)
+          ((Var (inord 0)) <+ p +> (Var (inord 1)))
+          ((Var (inord 2)) <+ p +> (Var (inord 3)))).
