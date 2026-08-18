@@ -168,6 +168,13 @@
           "coq-lsp.show_coq_info_messages" = false;
           "coq-lsp.show_goals_on" = 3;
           "coq-lsp.trace.server" = "off";
+          "files.exclude" = {
+            "**/*.vo" = true;
+            "**/*.vok" = true;
+            "**/*.vos" = true;
+            "**/*.glob" = true;
+            "**/*.aux" = true;
+          };
         };
 
         rocq-watch = pkgs.writeShellScriptBin "rocq-watch" ''
