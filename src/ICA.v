@@ -1,4 +1,5 @@
 From mathcomp Require Import ssreflect ssrfun ssrbool ssralg ssrnum reals fintype.
+From Stdlib Require Import Logic.FunctionalExtensionality.
 Import preorder.Order.PreorderTheory Num.Theory GRing.Theory.
 
 From Template Require Import Signature FuzzyRelation FRelDeduction.
@@ -152,3 +153,63 @@ Inductive ica_theory (R : realType) : fuzzy_theory R (@ica_signature R) :=
           (weighted_sum (ica_probability_weight p) eps delta)
           ((Var (inord 0)) <+ p +> (Var (inord 1)))
           ((Var (inord 2)) <+ p +> (Var (inord 3)))).
+
+Lemma ica_idem_subst
+    {R : realType}
+    (mode : frel_derivation_mode)
+    (X : fuzzy_space R)
+    (p : ica_weight R)
+    (t : term (@ica_signature R) (fcarrier X)) :
+  @frel_derives R ica_signature (@ica_theory R)
+    mode X
+    (subst_judgement
+      (fun _ : fcarrier (ica_full_space R 1) => t)
+      (EqJ
+        ((Var (inord 0)) <+ p +> (Var (inord 0)))
+        (Var (inord 0)))).
+Proof.
+  apply: (FD_Subst
+    (X := ica_full_space R 1)
+    (phi := EqJ
+      ((Var (inord 0)) <+ p +> (Var (inord 0)))
+      (Var (inord 0)))
+    (sigma := fun _ => t)).
+  - apply: FD_Init.
+    exact: ICA_Idem p.
+  - move => x y.
+    apply: FD_Max.
+Qed.
+
+Lemma ica_idem_instance
+    {R : realType}
+    (mode : frel_derivation_mode)
+    (X : fuzzy_space R)
+    (p : ica_weight R)
+    (t : term (@ica_signature R) (fcarrier X)) :
+  @frel_derives R ica_signature (@ica_theory R)
+    mode X
+    (EqJ (t <+ p +> t) t).
+Proof.
+  have H := ica_idem_subst mode p t.
+  rewrite /subst_judgement /= /ica_op /comp in H.
+  have Hargs :
+      (fun i : 'I_(ica_arity (ica_plus p)) =>
+        subst_term
+          (fun _ : fcarrier (ica_full_space R 1) => t)
+          (if Nat.eqb (i : nat) 0
+           then Var (inord 0)
+           else Var (inord 0))) =
+      (fun _ : 'I_(ica_arity (ica_plus p)) => t).
+  - apply: functional_extensionality => i.
+    by case: (Nat.eqb (i : nat) 0).
+  rewrite Hargs in H.
+  rewrite /ica_op /=.
+  have Htarget :
+      (fun i : 'I_(ica_arity (ica_plus p)) =>
+        if Nat.eqb (i : nat) 0 then t else t) =
+      (fun _ : 'I_(ica_arity (ica_plus p)) => t).
+  - apply: functional_extensionality => i.
+    by case: (Nat.eqb (i : nat) 0).
+  rewrite Htarget.
+  exact H.
+Qed.
