@@ -2,6 +2,7 @@ From Stdlib Require Import Logic.FunctionalExtensionality.
 From Stdlib Require Import Logic.ProofIrrelevance.
 From mathcomp Require Import all_ssreflect_compat all_algebra.
 From mathcomp Require Import all_classical reals.
+From mathcomp Require Import finmap.
 
 Set Implicit Arguments.
 Unset Strict Implicit.
@@ -277,3 +278,106 @@ Proof.
     by rewrite sum_weighted_sum
         (coupling_snd gamma1) (coupling_snd gamma2).
 Defined.
+
+(****************************************
+Trying to extend to finitely supported distributiotns. 
+*****************************************)
+
+(** Sum a real-valued function over an explicit finite support.  The type [A]
+    is the finite subtype of elements belonging to the finite set [A]. *)
+Definition fsum {R : realType} {X : choiceType}
+    (A : {fset X}) (f : X -> R) : R :=
+  \sum_(x : A) f (fsval x).
+
+Lemma fsum_ext {R : realType} {X : choiceType}
+    (A : {fset X}) (f g : X -> R) :
+  (forall x, x \in A -> f x = g x) ->
+  fsum A f = fsum A g.
+Proof.
+  move => H.
+  apply: eq_bigr => x _.
+  apply: H.
+  apply: fsvalP.
+Qed.
+
+Lemma fsum_eq0 {R : realType} {X : choiceType}
+    (A : {fset X}) (f : X -> R) :
+  (forall x, x \in A -> f x = 0) ->
+  fsum A f = 0.
+Proof.
+  move => H.
+  apply: big1 => x _.
+  apply: H.
+  apply: fsvalP.
+Qed.
+
+Lemma fsum_support_widen {R : realType} {X : choiceType}
+    (A B : {fset X}) (f : X -> R) :
+  (A `<=` B)%fset ->
+  (forall x, x \in B -> x \notin A -> f x = 0) ->
+  fsum B f = fsum A f.
+Proof.
+  move => hAB h0.
+  have subAB : {subset A <= B} by apply/fsubsetP.
+  case hAeq: (A == fset0).
+  { have eqA : A = fset0 by apply/eqP.
+    have eqmem : A =i fset0 by apply/fsetP.
+    rewrite /fsum.
+    have -> : \sum_(x : B) f (fsval x) = 0.
+    { apply: big1 => x _.
+      have hxB : fsval x \in B := fsvalP x.
+      have hxA : fsval x \notin A.
+      { by rewrite (eqmem (fsval x)) in_fset0. }
+      exact (h0 (fsval x) hxB hxA). }
+    apply/esym/big1 => x _.
+    by move: (fsvalP x); rewrite (eqmem (fsval x)) in_fset0. }
+  have hA : A != fset0 by rewrite hAeq.
+  rewrite /fsum (bigID (fun x : B => fsval x \in A)) /=.
+  have -> : \sum_(x : B | fsval x \notin A) f (fsval x) = 0.
+  { apply: big1 => x hx.
+    exact: h0 _ (fsvalP x) hx. }
+  rewrite addr0.
+  have [x0 hx0] : exists x, x \in A by apply/fset0Pn.
+  pose h (x : A) : B := Sub (fsval x) (subAB _ (fsvalP x)).
+  pose a0 : A := Sub x0 hx0.
+  pose h' (x : B) : A := insubd a0 (fsval x).
+  have hbij : {on [pred x : B | fsval x \in A], bijective h}.
+  { exists h'.
+    - move => x _.
+      apply: val_inj => /=.
+      exact (insubdK a0 (fsvalP x)).
+    - move => x hx.
+      apply: val_inj => /=.
+      exact (insubdK a0 hx). }
+  transitivity
+    (\sum_(x : A | fsval (h x) \in A) f (fsval (h x))).
+  - exact (reindex h hbij).
+  - apply: eq_big.
+    + move => x.
+      by rewrite /h /= fsvalP.
+    + move => x _.
+      reflexivity.
+Qed.
+
+Lemma fsum_disjoint_union {R : realType} {X : choiceType}
+    (A B : {fset X}) (f : X -> R) :
+  [disjoint A & B]%fset ->
+  fsum (A `|` B)%fset f = fsum A f + fsum B f.
+Proof.
+Admitted.
+
+Lemma fsum_union {R : realType} {X : choiceType}
+    (A B : {fset X}) (f : X -> R) :
+  fsum (A `|` B)%fset f =
+  fsum A f + fsum (B `\` A)%fset f.
+Proof.
+  have hU : (A `|` B)%fset = (A `|` (B `\` A))%fset.
+  - apply/fsetP => x.
+    rewrite !in_fsetE.
+    by case: (x \in A).
+  rewrite hU.
+  apply: fsum_disjoint_union.
+  apply/fdisjointP => x.
+  rewrite !in_fsetE.
+  by case: (x \in A).
+Qed.
