@@ -143,4 +143,25 @@ Lemma kantorovich_dirac_le {R : realType} {X : finType}
   (forall u v, (0 <= d u v <= 1)%R) ->
   (kantorovich_lifting d (dirac x) (dirac y) <= d x y)%R.
 Proof.
-Admitted.
+  move => Hunit.
+  have Hd0 : forall u v, (0 <= d u v)%R. {
+    move => u v.
+    have /andP [H _] := Hunit u v.
+    apply H.
+  }
+  apply: (le_trans
+    (kantorovich_le_coupling_cost (independent_coupling (dirac x) (dirac y)) Hd0)).
+  rewrite /coupling_cost /=.
+  have key : forall (F : X -> R) (u0 : X),
+      \sum_(u : X) (if u == u0 then 1 else 0) * F u = F u0. { 
+    move=> F u0.
+    rewrite (bigD1 u0) //=.
+    rewrite eqxx mul1r.
+    rewrite big1 ?addr0 // => u Hu.
+    by rewrite (negbTE Hu) mul0r. 
+  }
+  under eq_bigr => u _ do
+    (under eq_bigr => v _ do rewrite -mulrA;
+     rewrite -big_distrr /= key).
+  by rewrite key.
+Qed.
