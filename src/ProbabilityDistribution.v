@@ -279,10 +279,6 @@ Proof.
         (coupling_snd gamma1) (coupling_snd gamma2).
 Defined.
 
-(****************************************
-Trying to extend to finitely supported distributiotns. 
-*****************************************)
-
 (** Sum a real-valued function over an explicit finite support.  The type [A]
     is the finite subtype of elements belonging to the finite set [A]. *)
 Definition fsum {R : realType} {X : choiceType}
@@ -357,27 +353,4 @@ Proof.
       by rewrite /h /= fsvalP.
     + move => x _.
       reflexivity.
-Qed.
-
-Lemma fsum_disjoint_union {R : realType} {X : choiceType}
-    (A B : {fset X}) (f : X -> R) :
-  [disjoint A & B]%fset ->
-  fsum (A `|` B)%fset f = fsum A f + fsum B f.
-Proof.
-Admitted.
-
-Lemma fsum_union {R : realType} {X : choiceType}
-    (A B : {fset X}) (f : X -> R) :
-  fsum (A `|` B)%fset f =
-  fsum A f + fsum (B `\` A)%fset f.
-Proof.
-  have hU : (A `|` B)%fset = (A `|` (B `\` A))%fset.
-  - apply/fsetP => x.
-    rewrite !in_fsetE.
-    by case: (x \in A).
-  rewrite hU.
-  apply: fsum_disjoint_union.
-  apply/fdisjointP => x.
-  rewrite !in_fsetE.
-  by case: (x \in A).
 Qed.

@@ -237,25 +237,23 @@
         packages.default = pkgs.hello;
 
         devShells.default = pkgs.mkShell {
-          packages =
-            [
-              vscode
+          packages = [
+            vscode
 
-              rocqEnv
-              rocqMcp
-              rocq-watch
+            rocqEnv
+            rocqMcp
+            rocq-watch
 
-              pkgs.uv
-              pkgs.git
-              pkgs.dune_3
-              pkgs.ripgrep
-              pkgs.jq
-              pkgs.watchexec
-              pkgs.nodejs_22
-            ]
-            ++ [
-              codexPackage
-            ];
+            pkgs.uv
+            pkgs.git
+            pkgs.dune_3
+            pkgs.ripgrep
+            pkgs.jq
+            pkgs.watchexec
+            pkgs.nodejs_22
+            pkgs.codex
+            # codexPackage
+          ];
 
           shellHook = ''
                         mkdir -p .vscode
