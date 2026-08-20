@@ -121,6 +121,13 @@
             mathcomp-finmap
             mathcomp-analysis
 
+            # Reflexive ring/field/lra/nra tactics for MathComp structures.
+            # Provides mathcomp.algebra_tactics.ring and
+            # mathcomp.algebra_tactics.lra; mathcomp-zify is its dependency
+            # and is listed so the same package set supplies it.
+            mathcomp-algebra-tactics
+            mathcomp-zify
+
             coquelicot
             flocq
             interval

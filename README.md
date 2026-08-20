@@ -16,3 +16,7 @@ configuration changes in `settingsJson` in `flake.nix`.
   since frequent `.vo` rewrites can invalidate language-server state.
 - A small example showing how a simple multi file setup with dependencies can be
   made.
+- mathcomp-algebra-tactics, so `ring`, `field`, `lra`, and `nra` work on
+  MathComp structures after `From mathcomp Require Import ring lra.`.  Changing
+  `flake.nix` requires re-entering the dev shell before the new libraries
+  appear.

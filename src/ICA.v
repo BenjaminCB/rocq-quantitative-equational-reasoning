@@ -87,7 +87,7 @@ Proof.
     rewrite ltrBlDr subrK.
     have /andP [_ Hq1] := ica_weight_open q.
     apply: Hq1.
-Qed.
+Defined.
 
 
 Definition ica_full_space (R : realType) (n : nat) : fuzzy_space R.
