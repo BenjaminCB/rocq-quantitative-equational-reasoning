@@ -89,3 +89,24 @@ Proof.
   have [r [gamma ->] Hr] := inf_adherent Heta Hinf.
   by exists gamma.
 Qed.
+
+(* Could maybe be written a little easier 
+   With some of the lemmas in ProbabilityDistributions.v *)
+Lemma coupling_cost_convex_mixture {R : realType} {X Y : finType}
+    (d : X -> Y -> R)
+    {mu1 mu2 : probability_distribution R X}
+    {nu1 nu2 : probability_distribution R Y}
+    (p : probability_weight R)
+    (gamma1 : coupling mu1 nu1)
+    (gamma2 : coupling mu2 nu2) :
+  coupling_cost d (coupling_convex_mixture p gamma1 gamma2) =
+  weighted_sum p (coupling_cost d gamma1) (coupling_cost d gamma2).
+Proof.
+  rewrite /weighted_sum /coupling_cost.
+  rewrite !big_distrr -big_split /=.
+  apply: eq_bigr => x _.
+  rewrite !big_distrr -big_split /=.
+  apply: eq_bigr => y _.
+  rewrite /weighted_sum.
+  by rewrite mulrDl !mulrA.
+Qed. 
