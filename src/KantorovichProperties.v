@@ -110,3 +110,37 @@ Proof.
   rewrite /weighted_sum.
   by rewrite mulrDl !mulrA.
 Qed. 
+
+Lemma kantorovich_convex_mixture {R : realType} {X : finType}
+    (d : X -> X -> R)
+    (p : probability_weight R)
+    (mu1 mu2 nu1 nu2 : probability_distribution R X) :
+  (forall x y, (0 <= d x y <= 1)%R) ->
+  (kantorovich_lifting d
+      (convex_mixture p mu1 mu2)
+      (convex_mixture p nu1 nu2) <=
+  weighted_sum p
+    (kantorovich_lifting d mu1 nu1)
+    (kantorovich_lifting d mu2 nu2))%R.
+Proof.
+  move => Hd.
+  apply /ler_addgt0Pr => eta Heta.
+  have Hd0 : forall x y, (0 <= d x y)%R. {
+    move => x y.
+    have /andP [H _] := Hd x y.
+    apply H.
+  }
+  have [gamma1 Hg1] := kantorovich_almost_optimal mu1 nu1 Hd0 Heta.
+  have [gamma2 Hg2] := kantorovich_almost_optimal mu2 nu2 Hd0 Heta.
+  apply: (le_trans
+    (kantorovich_le_coupling_cost (coupling_convex_mixture p gamma1 gamma2) Hd0)).
+  rewrite coupling_cost_convex_mixture -weighted_sum_addr.
+  by apply: weighted_sum_le; apply: ltW.
+Qed.
+
+Lemma kantorovich_dirac_le {R : realType} {X : finType}
+    (d : X -> X -> R) (x y : X) :
+  (forall u v, (0 <= d u v <= 1)%R) ->
+  (kantorovich_lifting d (dirac x) (dirac y) <= d x y)%R.
+Proof.
+Admitted.

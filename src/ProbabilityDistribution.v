@@ -228,6 +228,29 @@ Proof.
   by rewrite -mulrDl addrC subrK mul1r.
 Qed.
 
+Lemma weighted_sum_le {R : realType} (p : probability_weight R)
+    (a1 a2 b1 b2 : R) :
+  (a1 <= a2)%R -> (b1 <= b2)%R ->
+  (weighted_sum p a1 b1 <= weighted_sum p a2 b2)%R.
+Proof.
+  move => Ha Hb.
+  rewrite /weighted_sum.
+  have /andP [Hzero Hone] := weight_unit p.
+  apply: lerD; apply: ler_wpM2l; by rewrite ?subr_ge0.
+Qed.
+
+Lemma weighted_sum_addr {R : realType} (p : probability_weight R)
+    (a b e : R) :
+  weighted_sum p (a + e) (b + e) = (weighted_sum p a b + e)%R.
+Proof.
+  rewrite /weighted_sum.
+  rewrite !mulrDr.
+  rewrite addrACA.
+  rewrite -mulrDl.
+  rewrite [weight p + (1 - weight p)]addrC subrK mul1r.
+  reflexivity.
+Qed.
+
 (** Definition 2.2's pointwise convex-algebra operation on distributions. *)
 Definition convex_mixture {R : realType} {X : finType}
     (p : probability_weight R)
