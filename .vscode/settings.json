@@ -1,1 +1,12 @@
-{"coq-lsp.args":[],"coq-lsp.check_on_scroll":true,"coq-lsp.check_only_on_request":true,"coq-lsp.completion.unicode.enabled":"off","coq-lsp.eager_diagnostics":true,"coq-lsp.goal_after_tactic":false,"coq-lsp.path":"/nix/store/5vswc5mz0f58165lb58s1zwcrf544z4h-rocq-with-packages-9.1.1/bin/coq-lsp","coq-lsp.show_coq_info_messages":false,"coq-lsp.show_goals_on":3,"coq-lsp.trace.server":"off","files.exclude":{"**/*.aux":true,"**/*.glob":true,"**/*.vo":true,"**/*.vok":true,"**/*.vos":true}}
+{"coq-lsp.args":[],"coq-lsp.check_on_scroll":true,"coq-lsp.check_only_on_request":true,"coq-lsp.completion.unicode.enabled":"off","coq-lsp.eager_diagnostics":true,"coq-lsp.goal_after_tactic":false,"coq-lsp.path":"/nix/store/5vswc5mz0f58165lb58s1zwcrf544z4h-rocq-with-packages-9.1.1/bin/coq-lsp","coq-lsp.show_coq_info_messages":false,"coq-lsp.show_goals_on":3,"coq-lsp.trace.server":"off","files.exclude":{
+        "**/*.vo": true,
+        "**/*.vok": true,
+        "**/*.vos": true,
+        "**/*.aux": true,
+        "**/*.glob": true,
+        "**/.git": true,
+        "**/.svn": true,
+        "**/.hg": true,
+        "**/.DS_Store": true,
+        "**/Thumbs.db": true
+    }}

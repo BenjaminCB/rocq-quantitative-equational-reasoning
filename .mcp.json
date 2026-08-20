@@ -1,0 +1,17 @@
+{
+  "mcpServers": {
+    "rocq": {
+      "type": "stdio",
+      "command": "rocq-mcp",
+      "args": []
+    },
+    "local-rag": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "mcp-local-rag"],
+      "env": {
+        "BASE_DIR": "docs"
+      }
+    }
+  }
+}
