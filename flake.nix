@@ -252,6 +252,8 @@
             pkgs.watchexec
             pkgs.nodejs_22
             pkgs.codex
+            pkgs.claude-code
+            pkgs.claude-monitor
             # codexPackage
           ];
 
