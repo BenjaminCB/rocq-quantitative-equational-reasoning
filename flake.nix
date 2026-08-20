@@ -108,7 +108,7 @@
         - pet
         - your Coq/Rocq libraries
         */
-        rocqEnv = coqPackages.coq.withPackages (ps:
+        rocqEnv = coqPackages.rocq-core.withPackages (ps:
           with ps; [
             coq-lsp
 
