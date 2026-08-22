@@ -13,6 +13,37 @@ Import Order.TTheory GRing.Theory Num.Theory.
 
 Local Open Scope ring_scope.
 
+(* ============================================================
+   The finite-carrier Kantorovich ICA model
+
+   This file contains:
+
+     - the finite-carrier Kantorovich fuzzy space,
+     - the distribution interpretation of [ica_plus],
+     - ICA modelhood (Proposition 4.6),
+     - the Dirac interpretation (Proposition 4.5), and
+     - finite-carrier Kantorovich soundness (Corollary 4.7).
+
+   [X : finType] is explicit throughout.  Nothing here depends on the
+   arbitrary-carrier finite-support migration, and nothing here uses
+   optimal-coupling existence: modelhood is not a compactness result, and the
+   almost-optimal interface [kantorovich_convex_mixture] is exactly what the
+   interpolation axiom needs.
+
+   Soundness proper is [derives_full_sound] in [FRelDeduction.v]: it holds at
+   every interpretation, because [satisfies] quantifies over all of them.  The
+   [finite_kantorovich_*] theorems at the end of this file are Corollary 4.7 of
+   the compactness paper, that theorem instantiated at the Dirac
+   interpretation.  Dirac is not a restriction on soundness; it is the instance
+   whose values are the distributions [[s]] and [[t]] denoted by the terms.
+
+   In this development [d] is an implicit argument recovered from the range
+   hypothesis, because the hypothesis mentions it and [Strict Implicit] is
+   unset.  This is why [KantorovichProperties.v] writes
+   [kantorovich_dirac_le x y Hd] with no [d], and why the definitions below are
+   applied as [kantorovich_algebra Hd].
+   ============================================================ *)
+
 Lemma ica_weight_complementE {R : realType} (p : ica_weight R) :
   ica_weight_val (ica_weight_complement p) = (1 - ica_weight_val p)%R.
 Proof. reflexivity. Qed.
