@@ -8,3 +8,5 @@ src/FuzzyRelation.v
 src/FRelDeduction.v
 src/ICA.v
 src/KantorovichProperties.v
+src/ICAKantorovichSoundness.v
+src/BarycentricNormalization.v
