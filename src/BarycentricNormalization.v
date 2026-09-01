@@ -202,3 +202,122 @@ Proof.
   - case: f args i => p args i /=.
     apply: subset_neq0 (finset.subsetUl _ _) (i (inord 0)).
 Qed.
+
+Definition ica_weight_half (R : realType) : ica_weight R.
+Proof.
+  refine {| ica_weight_val := 1 / 2%:R |}.
+  apply/andP; split; lra.
+Defined.
+
+Definition ica_weight_clamp {R : realType} (r : R) : ica_weight R :=
+  match Bool.bool_dec (0 < r < 1) true with
+  | left H => {| ica_weight_val := r; ica_weight_open := H |}
+  | right _ => ica_weight_half R
+  end.
+
+Lemma ica_weight_clampE {R : realType} (r : R) :
+  (0 < r < 1) -> ica_weight_val (ica_weight_clamp r) = r.
+Proof.
+  move => H.
+  rewrite /ica_weight_clamp.
+  case: (Bool.bool_dec (0 < r < 1) true); by [].
+Qed.
+
+Definition cond_mass {R : realType} {X : finType} 
+    (mu : probability_distribution R X) (x y : X) : R :=
+  if (mu x < 1) 
+  then (if y == x then 0 else mu y / (1 - mu x))
+  else mu y.
+
+Lemma cond_mass_ge0 {R : realType} {X : finType}
+    (mu : probability_distribution R X) (x : X) :
+  forall y, (0 <= cond_mass mu x y).
+Proof.
+  move => y.
+  rewrite /cond_mass.
+  case: ifP => [Hlt|_]; last apply: probability_mass_ge0.
+  have Hpos : (0 < 1 - mu x) by rewrite subr_gt0.
+  case: ifP => _; first apply: lexx.
+  by apply: divr_ge0; [apply: probability_mass_ge0 | apply: ltW].
+Qed.
+
+Lemma cond_mass_total {R : realType} {X : finType}
+    (mu : probability_distribution R X) (x : X) :
+  \sum_(y : X) cond_mass mu x y = 1.
+Proof.
+  rewrite /cond_mass.
+  case Hlt: (mu x < 1); last apply: probability_mass_total.
+  have Hpos : (0 < 1 - mu x) by rewrite subr_gt0.
+  rewrite (bigD1 x) //= eqxx add0r.
+  rewrite (eq_bigr (fun y => mu y / (1 - mu x))); last first.
+  - by move => y Hy; rewrite (negbTE Hy).
+  - rewrite -big_distrl /=.
+    have Hrest : \sum_(y : X | y != x) mu y = (1 - mu x)%R.
+      have := probability_mass_total mu.
+      rewrite (bigD1 x) //= => Htot.
+      by rewrite -Htot addrC addrK.
+    by rewrite Hrest mulfV //= gt_eqF.
+Qed.
+
+Definition condition {R : realType} {X : finType}
+    (mu : probability_distribution R X) (x : X) :
+    probability_distribution R X :=
+  {| probability_mass := cond_mass mu x;
+     probability_mass_ge0 := cond_mass_ge0 mu x; 
+     probability_mass_total := cond_mass_total mu x |}.
+
+Lemma conditionE {R : realType} {X : finType}
+    (mu : probability_distribution R X) (x y : X) :
+  (mu x < 1)%R ->
+  condition mu x y = (if y == x then 0 else mu y / (1 - mu x))%R.
+Proof.
+  move => Hlt1.
+  rewrite /condition //= /cond_mass.
+  case Heq: (mu x < 1); by rewrite ?Hlt1 in Heq.
+Qed.
+
+Lemma condition_support {R : realType} {X : finType}
+    (mu : probability_distribution R X) (x : X) :
+  (mu x < 1) -> x \in distribution_support mu ->
+  distribution_support (condition mu x) =
+    distribution_support mu :\ x.
+Proof.
+  move => Hlt Hin.
+  have Hne0 : (1 - mu x != 0) by rewrite gt_eqF //= subr_gt0.
+  apply/setP => y.
+  rewrite !inE conditionE //=.
+  case: ifP => [Heq | Hneq].
+  - by rewrite eqxx.
+  - rewrite Bool.andb_true_l.
+    rewrite mulf_eq0 invr_eq0.
+    by rewrite (negbTE Hne0) orbF.
+Qed.
+
+Lemma condition_recover {R : realType} {X : finType}
+    (mu : probability_distribution R X) (x : X) :
+  (mu x < 1) ->
+  x \in distribution_support mu ->
+  convex_mixture (ica_probability_weight (ica_weight_clamp (mu x)))
+    (dirac x) (condition mu x) = mu.
+Proof.
+  move => Hlt1 Hin.
+  rewrite inE in Hin.
+  have Hgt0 : (0 < mu x). {
+    rewrite lt_neqAle.
+    apply/andP; split.
+    - rewrite eq_sym.
+      apply: Hin.
+    - apply: probability_mass_ge0.
+  }
+  have Hne0 : (1 - mu x != 0) by rewrite gt_eqF //= subr_gt0.
+  apply: probability_distribution_ext => y.
+  rewrite /convex_mixture /weighted_sum //= /cond_mass.
+
+  rewrite ica_weight_clampE; last by apply/andP; split.
+  case: ifP => [Heq | Hneq]; case: ifP => [Hlt1' | Hnlt1'].
+  - move/eqP: Heq => {}Heq.
+    by rewrite mulr1 mulr0 addr0 Heq.
+  - by rewrite Hlt1 in Hnlt1'.
+  - by rewrite mulr0 add0r mulrCA divff //= mulr1.
+  - by rewrite Hlt1 in Hnlt1'.
+Qed.
