@@ -17,3 +17,6 @@ rocq_mcp_cache*
 # Local RAG index and model cache
 lancedb/
 models/
+
+# papers
+docs/paper/*
