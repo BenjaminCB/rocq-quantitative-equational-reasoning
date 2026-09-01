@@ -12,6 +12,7 @@ result-*
 *.vok
 *.vos
 .aider*
+rocq_mcp_cache*
 
 # Local RAG index and model cache
 lancedb/
