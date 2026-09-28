@@ -234,6 +234,7 @@
 
           text = ''
             export ROCQ_WORKSPACE="''${ROCQ_WORKSPACE:-$PWD}"
+            unset PYTHONPATH
 
             exec uvx \
               --from git+https://github.com/LLM4Rocq/rocq-mcp \

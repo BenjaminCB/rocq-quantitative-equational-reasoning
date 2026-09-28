@@ -3,6 +3,7 @@ From Stdlib Require Import Logic.ProofIrrelevance.
 From mathcomp Require Import all_ssreflect_compat all_algebra.
 From mathcomp Require Import all_classical reals.
 From mathcomp Require Import finmap.
+From mathcomp Require Import interval_inference.
 
 Set Implicit Arguments.
 Unset Strict Implicit.
@@ -12,10 +13,16 @@ Import Order.TTheory GRing.Theory Num.Theory.
 
 Local Open Scope ring_scope.
 
-Record probability_weight (R : realType) := {
-  weight : R;
-  weight_unit : (0 <= weight <= 1)%R;
-}.
+(** [mathcomp.algebra.interval_inference]'s [{i01 R}] (real numbers
+    canonically known to lie in [0, 1]) is a ready-made replacement for a
+    hand-rolled unit-interval sigma type. *)
+Definition probability_weight (R : realType) : Type := {i01 R}.
+
+Definition weight {R : realType} (p : probability_weight R) : R := p%:num.
+
+Lemma weight_unit {R : realType} (p : probability_weight R) :
+  (0 <= weight p <= 1)%R.
+Proof. by rewrite /weight; apply/andP; split; [exact: ge0 | exact: le1]. Qed.
 
 (** Definition 2.2.  The carrier is a [finType], so every distribution
     below is finitely supported automatically. *)
@@ -337,43 +344,9 @@ Lemma fsum_support_widen {R : realType} {X : choiceType}
   fsum B f = fsum A f.
 Proof.
   move => hAB h0.
-  have subAB : {subset A <= B} by apply/fsubsetP.
-  case hAeq: (A == fset0).
-  { have eqA : A = fset0 by apply/eqP.
-    have eqmem : A =i fset0 by apply/fsetP.
-    rewrite /fsum.
-    have -> : \sum_(x : B) f (fsval x) = 0.
-    { apply: big1 => x _.
-      have hxB : fsval x \in B := fsvalP x.
-      have hxA : fsval x \notin A.
-      { by rewrite (eqmem (fsval x)) in_fset0. }
-      exact (h0 (fsval x) hxB hxA). }
-    apply/esym/big1 => x _.
-    by move: (fsvalP x); rewrite (eqmem (fsval x)) in_fset0. }
-  have hA : A != fset0 by rewrite hAeq.
-  rewrite /fsum (bigID (fun x : B => fsval x \in A)) /=.
-  have -> : \sum_(x : B | fsval x \notin A) f (fsval x) = 0.
-  { apply: big1 => x hx.
-    exact: h0 _ (fsvalP x) hx. }
-  rewrite addr0.
-  have [x0 hx0] : exists x, x \in A by apply/fset0Pn.
-  pose h (x : A) : B := Sub (fsval x) (subAB _ (fsvalP x)).
-  pose a0 : A := Sub x0 hx0.
-  pose h' (x : B) : A := insubd a0 (fsval x).
-  have hbij : {on [pred x : B | fsval x \in A], bijective h}.
-  { exists h'.
-    - move => x _.
-      apply: val_inj => /=.
-      exact (insubdK a0 (fsvalP x)).
-    - move => x hx.
-      apply: val_inj => /=.
-      exact (insubdK a0 hx). }
-  transitivity
-    (\sum_(x : A | fsval (h x) \in A) f (fsval (h x))).
-  - exact (reindex h hbij).
-  - apply: eq_big.
-    + move => x.
-      by rewrite /h /= fsvalP.
-    + move => x _.
-      reflexivity.
+  rewrite /fsum -(big_seq_fsetE _ B xpredT f) -(big_seq_fsetE _ A xpredT f).
+  symmetry.
+  apply: big_fset_incl.
+  - exact: hAB.
+  - exact: h0.
 Qed.

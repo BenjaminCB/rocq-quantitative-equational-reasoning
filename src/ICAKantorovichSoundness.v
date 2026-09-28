@@ -1,6 +1,8 @@
 From mathcomp Require Import all_ssreflect_compat all_algebra.
 From mathcomp Require Import all_classical reals.
+From mathcomp Require Import interval_inference convex.
 From mathcomp Require Import ring lra.
+From HB Require Import structures.
 
 From Template Require Import Signature FuzzyRelation FRelDeduction.
 From Template Require Import ProbabilityDistribution KantorovichProperties ICA.
@@ -71,19 +73,25 @@ Proof.
   apply: H0.
 Qed.
 
+(** [weighted_sum] on [R] is, modulo the [{i01 R}] packaging of
+    [probability_weight], exactly mathcomp-analysis's [conv] operation for
+    the [isConvexSpace] instance on [R^o] (`mathcomp/analysis/convex.v`):
+    both unfold to [p%:num * x + (1 - p%:num) * y].  The three ICA
+    algebraic laws below are therefore instances of [convmm]/[convC]/[convA]
+    rather than independent [lra]/[field] calculations. *)
+
 Lemma weighted_sum_idem {R : realType}
     (p : probability_weight R) (a : R) :
   weighted_sum p a a = a.
-Proof.
-  by rewrite /weighted_sum; lra.
-Qed.
+Proof. exact: (convmm p (a : R^o)). Qed.
 
 Lemma weighted_sum_skew_comm {R : realType}
     (p : ica_weight R) (a b : R) :
   weighted_sum (ica_probability_weight p) a b =
   weighted_sum (ica_probability_weight (ica_weight_complement p)) b a.
 Proof.
-  by rewrite /weighted_sum /=; lra.
+  rewrite ica_weight_complementP.
+  exact: (convC (ica_probability_weight p) (a : R^o) (b : R^o)).
 Qed.
 
 Lemma weighted_sum_skew_assoc {R : realType}
@@ -94,11 +102,20 @@ Lemma weighted_sum_skew_assoc {R : realType}
     (weighted_sum (ica_probability_weight (ica_weight_assoc_inner p q))
       b c).
 Proof.
-  rewrite /weighted_sum /=.
-  have Hne : (1 - ica_weight_val p * ica_weight_val q != 0)%R.
-    by rewrite gt_eqF // ica_weight_product_lt1.
-  field.
-  apply: Hne.
+  symmetry.
+  apply: (convA
+    (ica_probability_weight (ica_weight_product p q))
+    (ica_probability_weight (ica_weight_assoc_inner p q))
+    (ica_probability_weight p)
+    (ica_probability_weight q)
+    (a : R^o) (b : R^o) (c : R^o)).
+  - by rewrite !ica_probability_weightE.
+  - have Hne : (1 - ica_weight_val p * ica_weight_val q != 0)%R.
+      by rewrite gt_eqF // ica_weight_product_lt1.
+    rewrite !ica_probability_weightE /unstable.onem.
+    rewrite /ica_weight_product /ica_weight_assoc_inner /=.
+    field.
+    apply: Hne.
 Qed.
 
 Lemma convex_mixtureE {R : realType} {X : finType}
@@ -106,6 +123,15 @@ Lemma convex_mixtureE {R : realType} {X : finType}
     (mu nu : probability_distribution R X) (x : X) :
   convex_mixture p mu nu x = weighted_sum p (mu x) (nu x).
 Proof. reflexivity. Qed.
+
+Lemma convex_mixture_conv1 {R : realType} {X : finType}
+    (mu nu : probability_distribution R X) :
+  convex_mixture 1%:i01 mu nu = mu.
+Proof.
+  apply: probability_distribution_ext => x.
+  rewrite convex_mixtureE.
+  exact: (conv1 (mu x : R^o) (nu x : R^o)).
+Qed.
 
 Lemma convex_mixture_idem {R : realType} {X : finType}
     (p : probability_weight R) (mu : probability_distribution R X) :
@@ -135,6 +161,32 @@ Proof.
   apply: probability_distribution_ext => x.
   by rewrite convex_mixtureE weighted_sum_skew_assoc.
 Qed.
+
+Lemma convex_mixture_convC {R : realType} {X : finType}
+    (p : probability_weight R) (mu nu : probability_distribution R X) :
+  convex_mixture p mu nu = convex_mixture (1 - p%:num)%:i01 nu mu.
+Proof.
+  apply: probability_distribution_ext => x.
+  rewrite !convex_mixtureE.
+  exact: (convC p (mu x : R^o) (nu x : R^o)).
+Qed.
+
+Lemma convex_mixture_convA {R : realType} {X : finType} :
+  convex_quasi_associative (@convex_mixture R X).
+Proof.
+  move=> p q r s mu nu xi prs spq.
+  apply: probability_distribution_ext => x.
+  rewrite !convex_mixtureE.
+  exact: (convA p q r s (mu x : R^o) (nu x : R^o) (xi x : R^o) prs spq).
+Qed.
+
+Section ProbabilityDistributionConvexSpace.
+Context {R : realType} {X : finType}.
+HB.instance Definition _ :=
+  isConvexSpace.Build R (probability_distribution R X)
+    convex_mixture_conv1 convex_mixture_idem
+    convex_mixture_convC convex_mixture_convA.
+End ProbabilityDistributionConvexSpace.
 
 Definition kantorovich_ops {R : realType} {X : finType} :
     algebra_ops (@ica_signature R) (probability_distribution R X) :=

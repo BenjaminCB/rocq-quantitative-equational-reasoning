@@ -1,4 +1,5 @@
-From mathcomp Require Import ssreflect ssrfun ssrbool ssralg ssrnum reals fintype.
+From mathcomp Require Import ssreflect ssrfun ssrbool eqtype choice ssralg ssrnum reals fintype.
+From mathcomp Require Import interval_inference.
 From Stdlib Require Import Logic.FunctionalExtensionality.
 Import preorder.Order.PreorderTheory Num.Theory GRing.Theory.
 
@@ -16,15 +17,17 @@ Record ica_weight (R : realType) := {
   ica_weight_open : (0 < ica_weight_val < 1)%R;
 }.
 
+(** Built as a single term (not via [have]/[case] on [ica_weight_open p])
+    so that the [{i01 R}] payload stays syntactically [ica_weight_val p],
+    making [ica_probability_weightE] below provable by [reflexivity]. *)
 Definition ica_probability_weight {R : realType}
-    (p : ica_weight R) : probability_weight R.
-Proof.
-  refine {| weight := ica_weight_val p |}.
-  have /andP [Hp0 Hp1] := ica_weight_open p.
-  apply/andP; split.
-  - apply: ltW Hp0.
-  - apply: ltW Hp1.
-Defined.
+    (p : ica_weight R) : probability_weight R :=
+  Itv01 (ltW (elimT andP (ica_weight_open p)).1)
+        (ltW (elimT andP (ica_weight_open p)).2).
+
+Lemma ica_probability_weightE {R : realType} (p : ica_weight R) :
+  (ica_probability_weight p)%:num = ica_weight_val p.
+Proof. by []. Qed.
 
 Inductive ica_sym (R : realType) : Type :=
   | ica_plus : ica_weight R -> ica_sym R.
@@ -51,7 +54,12 @@ Proof.
   apply/andP; split.
     - rewrite subr_gt0; apply Hp1.
     - rewrite gtrBl; apply Hp0.
-Defined. 
+Defined.
+
+Lemma ica_weight_complementP {R : realType} (p : ica_weight R) :
+  ica_probability_weight (ica_weight_complement p) =
+  (1 - (ica_probability_weight p)%:num)%:i01.
+Proof. by apply: val_inj. Qed.
 
 Definition ica_weight_product {R : realType}
   (p q : ica_weight R) : ica_weight R.
