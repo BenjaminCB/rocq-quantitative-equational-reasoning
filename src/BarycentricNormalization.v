@@ -1,7 +1,7 @@
 From Stdlib Require Import Logic.FunctionalExtensionality.
-From mathcomp Require Import all_ssreflect_compat all_algebra.
+From mathcomp Require Import all_boot all_order all_algebra.
 From mathcomp Require Import all_classical reals.
-From mathcomp Require Import ring lra.
+From mathcomp.algebra_tactics Require Import ring lra.
 
 From Template Require Import Signature FuzzyRelation FRelDeduction.
 From Template Require Import ProbabilityDistribution KantorovichProperties ICA.
@@ -16,9 +16,9 @@ Import Order.TTheory GRing.Theory Num.Theory.
 Local Open Scope ring_scope.
 
 Fixpoint term_distribution {R : realType} {X : finType}
-    (s : term (@ica_signature R) X) : probability_distribution R X :=
+    (s : term (@ica_signature R) X) : fdist R X :=
   match s with
-  | Var x => dirac x
+  | Var x => dirac_fdist x
   | App f args =>
       match f with
       | ica_plus p =>
@@ -176,14 +176,14 @@ Lemma term_distribution_support {R : realType} {X : finType}
   distribution_support (term_distribution s) = term_vars s.
 Proof.
   elim: s => [ x | f args i ].
-  - rewrite /distribution_support /dirac //=.
+  - rewrite /distribution_support /dirac_fdist //=.
     apply/setP => x'; rewrite !inE.
     by case: (x' == x); rewrite ?oner_neq0 ?eq_refl.
   - case: f args i => p args i /=.
     apply/setP => y; rewrite !inE.
     rewrite convex_mixtureE -(i (inord 0)) -(i (inord 1)) !inE.
-    have Ha := probability_mass_ge0 (term_distribution (args (inord 0))) y.
-    have Hb := probability_mass_ge0 (term_distribution (args (inord 1))) y.
+    have Ha := fdist_ge0 (term_distribution (args (inord 0))) y.
+    have Hb := fdist_ge0 (term_distribution (args (inord 1))) y.
     have Hw := weighted_sum_ge0 (ica_probability_weight p) Ha Hb.
     have gt0E : forall z : R, 0 <= z -> (z != 0) = (0 < z).
       by move=> z Hz; rewrite lt0r Hz andbT.
@@ -225,51 +225,49 @@ Proof.
   case: (Bool.bool_dec (0 < r < 1) true); by [].
 Qed.
 
-Definition cond_mass {R : realType} {X : finType} 
-    (mu : probability_distribution R X) (x y : X) : R :=
-  if (mu x < 1) 
+Definition cond_mass {R : realType} {X : finType}
+    (mu : fdist R X) (x y : X) : R :=
+  if (mu x < 1)
   then (if y == x then 0 else mu y / (1 - mu x))
   else mu y.
 
 Lemma cond_mass_ge0 {R : realType} {X : finType}
-    (mu : probability_distribution R X) (x : X) :
+    (mu : fdist R X) (x : X) :
   forall y, (0 <= cond_mass mu x y).
 Proof.
   move => y.
   rewrite /cond_mass.
-  case: ifP => [Hlt|_]; last apply: probability_mass_ge0.
+  case: ifP => [Hlt|_]; last apply: fdist_ge0.
   have Hpos : (0 < 1 - mu x) by rewrite subr_gt0.
   case: ifP => _; first apply: lexx.
-  by apply: divr_ge0; [apply: probability_mass_ge0 | apply: ltW].
+  by apply: divr_ge0; [apply: fdist_ge0 | apply: ltW].
 Qed.
 
 Lemma cond_mass_total {R : realType} {X : finType}
-    (mu : probability_distribution R X) (x : X) :
+    (mu : fdist R X) (x : X) :
   \sum_(y : X) cond_mass mu x y = 1.
 Proof.
   rewrite /cond_mass.
-  case Hlt: (mu x < 1); last apply: probability_mass_total.
+  case Hlt: (mu x < 1); last exact: fdist_1.
   have Hpos : (0 < 1 - mu x) by rewrite subr_gt0.
   rewrite (bigD1 x) //= eqxx add0r.
-  rewrite (eq_bigr (fun y => mu y / (1 - mu x))); last first.
-  - by move => y Hy; rewrite (negbTE Hy).
-  - rewrite -big_distrl /=.
-    have Hrest : \sum_(y : X | y != x) mu y = (1 - mu x)%R.
-      have := probability_mass_total mu.
-      rewrite (bigD1 x) //= => Htot.
-      by rewrite -Htot addrC addrK.
-    by rewrite Hrest mulfV //= gt_eqF.
+  under eq_bigr => y Hy do rewrite (negbTE Hy).
+  rewrite -big_distrl /=.
+  have Hrest : \sum_(y : X | y != x) mu y = (1 - mu x)%R.
+    have Htot := fdist_1 mu.
+    rewrite (bigD1 x) //= in Htot.
+    by lra.
+  by rewrite Hrest mulfV //= gt_eqF.
 Qed.
 
 Definition condition {R : realType} {X : finType}
-    (mu : probability_distribution R X) (x : X) :
-    probability_distribution R X :=
-  {| probability_mass := cond_mass mu x;
-     probability_mass_ge0 := cond_mass_ge0 mu x; 
-     probability_mass_total := cond_mass_total mu x |}.
+    (mu : fdist R X) (x : X) : fdist R X :=
+  {| fdist_val := cond_mass mu x;
+     fdist_ge0 := cond_mass_ge0 mu x;
+     fdist_1 := cond_mass_total mu x |}.
 
 Lemma conditionE {R : realType} {X : finType}
-    (mu : probability_distribution R X) (x y : X) :
+    (mu : fdist R X) (x y : X) :
   (mu x < 1)%R ->
   condition mu x y = (if y == x then 0 else mu y / (1 - mu x))%R.
 Proof.
@@ -279,7 +277,7 @@ Proof.
 Qed.
 
 Lemma condition_support {R : realType} {X : finType}
-    (mu : probability_distribution R X) (x : X) :
+    (mu : fdist R X) (x : X) :
   (mu x < 1) -> x \in distribution_support mu ->
   distribution_support (condition mu x) =
     distribution_support mu :\ x.
@@ -296,11 +294,11 @@ Proof.
 Qed.
 
 Lemma condition_recover {R : realType} {X : finType}
-    (mu : probability_distribution R X) (x : X) :
+    (mu : fdist R X) (x : X) :
   (mu x < 1) ->
   x \in distribution_support mu ->
   convex_mixture (ica_probability_weight (ica_weight_clamp (mu x)))
-    (dirac x) (condition mu x) = mu.
+    (dirac_fdist x) (condition mu x) = mu.
 Proof.
   move => Hlt1 Hin.
   rewrite inE in Hin.
@@ -309,13 +307,12 @@ Proof.
     apply/andP; split.
     - rewrite eq_sym.
       apply: Hin.
-    - apply: probability_mass_ge0.
+    - apply: fdist_ge0.
   }
   have Hne0 : (1 - mu x != 0) by rewrite gt_eqF //= subr_gt0.
-  apply: probability_distribution_ext => y.
-  rewrite /convex_mixture /weighted_sum //= /cond_mass /weight ica_probability_weightE.
-
-  rewrite ica_weight_clampE; last by apply/andP; split.
+  apply: fdist_ext => y.
+  rewrite convex_mixtureE /weighted_sum /dirac_fdist //= /cond_mass /weight ica_probability_weightE.
+  rewrite ica_weight_clampE; first by apply/andP; split.
   case: ifP => [Heq | Hneq]; case: ifP => [Hlt1' | Hnlt1'].
   - move/eqP: Heq => {}Heq.
     by rewrite mulr1 mulr0 addr0 Heq.

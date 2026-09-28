@@ -1,7 +1,7 @@
-From mathcomp Require Import all_ssreflect_compat all_algebra.
+From mathcomp Require Import all_boot all_order all_algebra.
 From mathcomp Require Import all_classical reals.
 From mathcomp Require Import interval_inference convex.
-From mathcomp Require Import ring lra.
+From mathcomp.algebra_tactics Require Import ring lra.
 From HB Require Import structures.
 
 From Template Require Import Signature FuzzyRelation FRelDeduction.
@@ -118,78 +118,42 @@ Proof.
     apply: Hne.
 Qed.
 
-Lemma convex_mixtureE {R : realType} {X : finType}
-    (p : probability_weight R)
-    (mu nu : probability_distribution R X) (x : X) :
-  convex_mixture p mu nu x = weighted_sum p (mu x) (nu x).
-Proof. reflexivity. Qed.
-
-Lemma convex_mixture_conv1 {R : realType} {X : finType}
-    (mu nu : probability_distribution R X) :
-  convex_mixture 1%:i01 mu nu = mu.
-Proof.
-  apply: probability_distribution_ext => x.
-  rewrite convex_mixtureE.
-  exact: (conv1 (mu x : R^o) (nu x : R^o)).
-Qed.
+(** [convex_mixtureE] and the [isConvexSpace] instance on [fdist R X] are
+    already provided by [ProbabilityDistribution.v]/[kantorovich.v]; only the
+    ICA-specific algebraic facts (idempotence, skew-commutativity,
+    skew-associativity) need restating here. *)
 
 Lemma convex_mixture_idem {R : realType} {X : finType}
-    (p : probability_weight R) (mu : probability_distribution R X) :
+    (p : probability_weight R) (mu : fdist R X) :
   convex_mixture p mu mu = mu.
 Proof.
-  apply: probability_distribution_ext => x.
+  apply: fdist_ext => x.
   by rewrite convex_mixtureE weighted_sum_idem.
 Qed.
 
 Lemma convex_mixture_skew_comm {R : realType} {X : finType}
-    (p : ica_weight R) (mu nu : probability_distribution R X) :
+    (p : ica_weight R) (mu nu : fdist R X) :
   convex_mixture (ica_probability_weight p) mu nu =
   convex_mixture (ica_probability_weight (ica_weight_complement p)) nu mu.
 Proof.
-  apply: probability_distribution_ext => x.
+  apply: fdist_ext => x.
   by rewrite convex_mixtureE weighted_sum_skew_comm.
 Qed.
 
 Lemma convex_mixture_skew_assoc {R : realType} {X : finType}
-    (p q : ica_weight R) (mu nu xi : probability_distribution R X) :
+    (p q : ica_weight R) (mu nu xi : fdist R X) :
   convex_mixture (ica_probability_weight q)
     (convex_mixture (ica_probability_weight p) mu nu) xi =
   convex_mixture (ica_probability_weight (ica_weight_product p q)) mu
     (convex_mixture
       (ica_probability_weight (ica_weight_assoc_inner p q)) nu xi).
 Proof.
-  apply: probability_distribution_ext => x.
+  apply: fdist_ext => x.
   by rewrite convex_mixtureE weighted_sum_skew_assoc.
 Qed.
 
-Lemma convex_mixture_convC {R : realType} {X : finType}
-    (p : probability_weight R) (mu nu : probability_distribution R X) :
-  convex_mixture p mu nu = convex_mixture (1 - p%:num)%:i01 nu mu.
-Proof.
-  apply: probability_distribution_ext => x.
-  rewrite !convex_mixtureE.
-  exact: (convC p (mu x : R^o) (nu x : R^o)).
-Qed.
-
-Lemma convex_mixture_convA {R : realType} {X : finType} :
-  convex_quasi_associative (@convex_mixture R X).
-Proof.
-  move=> p q r s mu nu xi prs spq.
-  apply: probability_distribution_ext => x.
-  rewrite !convex_mixtureE.
-  exact: (convA p q r s (mu x : R^o) (nu x : R^o) (xi x : R^o) prs spq).
-Qed.
-
-Section ProbabilityDistributionConvexSpace.
-Context {R : realType} {X : finType}.
-HB.instance Definition _ :=
-  isConvexSpace.Build R (probability_distribution R X)
-    convex_mixture_conv1 convex_mixture_idem
-    convex_mixture_convC convex_mixture_convA.
-End ProbabilityDistributionConvexSpace.
-
 Definition kantorovich_ops {R : realType} {X : finType} :
-    algebra_ops (@ica_signature R) (probability_distribution R X) :=
+    algebra_ops (@ica_signature R) (fdist R X) :=
   fun f =>
     match f with
     | ica_plus p =>
@@ -207,7 +171,7 @@ Definition finite_fuzzy_space : fuzzy_space R :=
   {| fcarrier := X; frel := d; frel_range := Hd |}.
 
 Definition kantorovich_fuzzy_space : fuzzy_space R :=
-  {| fcarrier := probability_distribution R X;
+  {| fcarrier := fdist R X;
     frel := kantorovich_lifting d;
     frel_range := fun mu nu => fuzzy_kantorovich_lifting mu nu Hd |}.
 
@@ -216,7 +180,7 @@ Definition kantorovich_algebra : FuzzyAlgebra R (@ica_signature R) :=
     fa_ops := kantorovich_ops |}.
 
 Lemma kantorovich_eval_op {Y : Type}
-    (rho : Y -> probability_distribution R X)
+    (rho : Y -> fdist R X)
     (p : ica_weight R) (s t : term (@ica_signature R) Y) :
   fuzzy_eval kantorovich_algebra rho (s <+ p +> t) =
   convex_mixture (ica_probability_weight p)
@@ -249,12 +213,12 @@ Definition dirac_interpretation :
     interpretation finite_fuzzy_space kantorovich_algebra :=
   @Build_interpretation R (@ica_signature R)
     finite_fuzzy_space kantorovich_algebra
-    (fun x : X => dirac x)
+    (fun x : X => dirac_fdist x)
     (fun x y => kantorovich_dirac_le x y Hd).
 
 Definition ica_term_distribution (s : term (@ica_signature R) X) :
-    probability_distribution R X :=
-  fuzzy_eval kantorovich_algebra (fun x : X => dirac x) s.
+    fdist R X :=
+  fuzzy_eval kantorovich_algebra (fun x : X => dirac_fdist x) s.
 
 Theorem finite_kantorovich_soundness
     (s t : term (@ica_signature R) X) (eps : R) :

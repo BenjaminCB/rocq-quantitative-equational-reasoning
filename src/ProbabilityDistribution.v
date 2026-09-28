@@ -1,9 +1,9 @@
-From Stdlib Require Import Logic.FunctionalExtensionality.
-From Stdlib Require Import Logic.ProofIrrelevance.
-From mathcomp Require Import all_ssreflect_compat all_algebra.
+From mathcomp Require Import all_boot all_order all_algebra.
 From mathcomp Require Import all_classical reals.
 From mathcomp Require Import finmap.
 From mathcomp Require Import interval_inference.
+From mathcomp Require Import convex.
+From mathcomp Require Export kantorovich.
 
 Set Implicit Arguments.
 Unset Strict Implicit.
@@ -12,6 +12,17 @@ Unset Printing Implicit Defensive.
 Import Order.TTheory GRing.Theory Num.Theory.
 
 Local Open Scope ring_scope.
+Local Open Scope convex_scope.
+
+(** [mathcomp.analysis.kantorovich] provides [fdist]/[dirac_fdist]/
+    [joint_fdist]/[coupling]/[indep_fdist]/[indep_coupling]/[coupling_cost]/
+    [kantorovich_lifting], plus [isConvexSpace] instances on [fdist R X] and
+    [joint_fdist R X Y] pointwise on the underlying mass functions, and the
+    lemmas [fdist_le1], [fdist_ext], [coupling_cost_ge0], [coupling_cost_le1],
+    [coupling_cost_conv], [kantorovich_lifting_ge0], [kantorovich_lifting_le1],
+    [kantorovich_le_coupling_cost], [kantorovich_almost_optimal],
+    [kantorovich_conv_le], [kantorovich_dirac_le], [couplings_nonempty].  This
+    file keeps only what has no upstream analogue. *)
 
 (** [mathcomp.algebra.interval_inference]'s [{i01 R}] (real numbers
     canonically known to lie in [0, 1]) is a ready-made replacement for a
@@ -24,188 +35,31 @@ Lemma weight_unit {R : realType} (p : probability_weight R) :
   (0 <= weight p <= 1)%R.
 Proof. by rewrite /weight; apply/andP; split; [exact: ge0 | exact: le1]. Qed.
 
-(** Definition 2.2.  The carrier is a [finType], so every distribution
-    below is finitely supported automatically. *)
-Record probability_distribution (R : realType) (X : finType) := {
-  probability_mass :> X -> R;
-  probability_mass_ge0 : forall x, (0 <= probability_mass x)%R;
-  probability_mass_total : \sum_(x : X) probability_mass x = 1;
-}.
-
-Lemma probability_mass_le1 {R : realType} {X : finType}
-    (mu : probability_distribution R X) (x : X) :
-  (mu x <= 1)%R.
-Proof.
-  rewrite -(probability_mass_total mu) (bigD1 x) //=.
-  rewrite lerDl.
-  apply: sumr_ge0 => y _.
-  exact: probability_mass_ge0.
-Qed.
-
-Lemma probability_distribution_ext {R : realType} {X : finType}
-    (mu nu : probability_distribution R X) :
-  (forall x, mu x = nu x) -> mu = nu.
-Proof.
-  case: mu => mu Hmu0 Hmu1.
-  case: nu => nu Hnu0 Hnu1 /=.
-  move=> H.
-  have Hfun : mu = nu by apply functional_extensionality.
-  subst nu.
-  f_equal; apply proof_irrelevance.
-Qed.
-
 Definition distribution_support {R : realType} {X : finType}
-    (mu : probability_distribution R X) : {set X} :=
-  [set x | mu x != 0].
+    (mu : fdist R X) : {set X} := [set x | mu x != 0].
 
-(** The Dirac distribution [delta_x]. *)
-Definition dirac {R : realType} {X : finType} (x : X) :
-    probability_distribution R X.
-Proof.
-  refine {| probability_mass := fun y => if y == x then 1 else 0 |}.
-  - move => y.
-    case: ifP => _; [exact: ler01 | exact: lexx].
-  - rewrite (bigD1 x) //= eqxx.
-    rewrite big1 ?addr0 //.
-    move => y Hy.
-    by rewrite (negbTE Hy).
-Defined.
+(** The Kantorovich lifting is jointly convex on [fdist R X], via the
+    [isConvexSpace] instance [kantorovich.v] equips it with; this names that
+    convex combination the way the rest of this development already does. *)
+Definition convex_mixture {R : realType} {X : finType}
+    (p : probability_weight R) (mu nu : fdist R X) : fdist R X :=
+  mu <| p |> nu.
 
-(** A distribution on a finite product, represented in curried form.
-    The curried representation exposes the two marginal sums directly. *)
-Record joint_probability_distribution
-    (R : realType) (X Y : finType) := {
-  joint_probability_mass :> X -> Y -> R;
-  joint_probability_mass_ge0 :
-    forall x y, (0 <= joint_probability_mass x y)%R;
-  joint_probability_mass_total :
-    \sum_(x : X) \sum_(y : Y) joint_probability_mass x y = 1;
-}.
-
-(** A coupling is a joint distribution whose first
-    and second marginals are the specified distributions. *)
-Record coupling {R : realType} {X Y : finType}
-    (mu : probability_distribution R X)
-    (nu : probability_distribution R Y) := {
-  coupling_distribution : joint_probability_distribution R X Y;
-  coupling_fst : forall x,
-    \sum_(y : Y) coupling_distribution x y = mu x;
-  coupling_snd : forall y,
-    \sum_(x : X) coupling_distribution x y = nu y;
-}.
-
-(** The independent product distribution, with mass [mu x * nu y]. *)
-Definition independent_product {R : realType} {X Y : finType}
-    (mu : probability_distribution R X)
-    (nu : probability_distribution R Y) :
-    joint_probability_distribution R X Y.
-Proof.
-  refine {| joint_probability_mass := fun x y => mu x * nu y |}.
-  - move=> x y.
-    exact: mulr_ge0 (probability_mass_ge0 mu x)
-                    (probability_mass_ge0 nu y).
-  - under eq_bigr do
-      rewrite -big_distrr probability_mass_total //=.
-    have Hsum : (\sum_(x : X) mu x * 1) = \sum_(x : X) mu x.
-    { apply: eq_bigr => x _.
-      exact: mulr1. }
-    by rewrite Hsum probability_mass_total.
-Defined.
-
-Definition independent_coupling {R : realType} {X Y : finType}
-    (mu : probability_distribution R X)
-    (nu : probability_distribution R Y) : coupling mu nu.
-Proof.
-  refine {| coupling_distribution := independent_product mu nu |}.
-  - move=> x /=.
-    rewrite -big_distrr probability_mass_total //=.
-    exact: mulr1.
-  - move=> y /=.
-    rewrite -big_distrl probability_mass_total //=.
-    exact: mul1r.
-Defined.
-
-(** non-emptiness part: the independent product is always
-    a coupling.  Compactness is a topological result and belongs in a later
-    finite-dimensional topology layer. *)
-Lemma couplings_nonempty {R : realType} {X Y : finType}
-    (mu : probability_distribution R X)
-    (nu : probability_distribution R Y) :
-  inhabited (coupling mu nu).
-Proof.
-  exact: inhabits (independent_coupling mu nu).
-Qed.
-
-(** The expected [d]-cost of a coupling.  This is [V_d] from
-    Definition 4.2 of the compactness paper. *)
-Definition coupling_cost {R : realType} {X Y : finType}
-    (d : X -> Y -> R)
-    {mu : probability_distribution R X}
-    {nu : probability_distribution R Y}
-    (gamma : coupling mu nu) : R :=
-  \sum_(x : X) \sum_(y : Y)
-    coupling_distribution gamma x y * d x y.
-
-(** Definition 4.2: the Kantorovich lifting of [d], obtained by taking
-    the infimum of coupling costs. *)
-Definition kantorovich_lifting {R : realType} {X : finType}
-    (d : X -> X -> R)
-    (mu nu : probability_distribution R X) : R :=
-  inf [set r : R | exists gamma : coupling mu nu,
-    r = coupling_cost d gamma].
-
-Lemma fuzzy_kantorovich_lifting {R : realType} {X : finType}
-    (d : X -> X -> R)
-    (mu nu : probability_distribution R X) :
-  (forall x y, 0 <= d x y <= 1) -> 0 <= kantorovich_lifting d mu nu <= 1.
-Proof.
-  move=> Hd.
-  rewrite /kantorovich_lifting.
-  set costs : set R := fun r => exists gamma : coupling mu nu,
-    r = coupling_cost d gamma.
-  have Hne : (costs !=set0)%classic.
-  { exists (coupling_cost d (independent_coupling mu nu)).
-    rewrite /costs.
-    exists (independent_coupling mu nu).
-    reflexivity. }
-  have Hlb : lbound costs 0.
-  { apply/lbP => r.
-    rewrite /costs.
-    move=> [gamma ->].
-    rewrite /coupling_cost.
-    apply: sumr_ge0 => x _.
-    apply: sumr_ge0 => y _.
-    have /andP [Hd0 _] := Hd x y.
-    exact: mulr_ge0
-      (joint_probability_mass_ge0 (coupling_distribution gamma) x y) Hd0. }
-  apply/andP; split.
-  - exact: lb_le_inf Hne Hlb.
-  - set gamma := independent_coupling mu nu.
-    have Hinf_cost : inf costs <= coupling_cost d gamma.
-    { have Hhaslb : has_lbound costs by exists 0.
-      have Hinf := ge_inf Hhaslb.
-      apply: Hinf.
-      rewrite /costs.
-      exists gamma.
-      reflexivity. }
-    apply: (le_trans Hinf_cost).
-    rewrite /coupling_cost.
-    rewrite -(joint_probability_mass_total (coupling_distribution gamma)).
-    apply: ler_sum => x _.
-    apply: ler_sum => y _.
-    have /andP [_ Hd1] := Hd x y.
-    have Hmass0 :=
-      joint_probability_mass_ge0 (coupling_distribution gamma) x y.
-    have Hmul :
-        coupling_distribution gamma x y * d x y <=
-        coupling_distribution gamma x y * 1 :=
-      ler_wpM2l Hmass0 Hd1.
-    by rewrite mulr1 in Hmul.
-Qed.
-
+(** The scalar convex combination underlying [conv] on [R^o]
+    (`mathcomp/analysis/convex.v`'s [convRE]), named for readability at the
+    many call sites that combine bare reals rather than [fdist]s. *)
 Definition weighted_sum {R : realType}
     (p : probability_weight R) (x y : R) : R :=
   weight p * x + (1 - weight p) * y.
+
+Lemma convex_mixtureE {R : realType} {X : finType}
+    (p : probability_weight R) (mu nu : fdist R X) (x : X) :
+  convex_mixture p mu nu x = weighted_sum p (mu x) (nu x).
+Proof. by rewrite /convex_mixture fdist_convE convRE. Qed.
+
+Lemma weighted_sumE {R : realType} (p : probability_weight R) (x y : R) :
+  weighted_sum p x y = (x : R^o) <| p |> (y : R^o).
+Proof. by rewrite convRE. Qed.
 
 Lemma weighted_sum_ge0 {R : realType}
     (p : probability_weight R) (x y : R) :
@@ -258,56 +112,19 @@ Proof.
   reflexivity.
 Qed.
 
-(** Definition 2.2's pointwise convex-algebra operation on distributions. *)
-Definition convex_mixture {R : realType} {X : finType}
-    (p : probability_weight R)
-    (mu nu : probability_distribution R X) :
-    probability_distribution R X.
+(** [kantorovich_lifting_ge0] and [kantorovich_lifting_le1] packaged as one
+    [andP], matching how this development already calls this fact. *)
+Lemma fuzzy_kantorovich_lifting {R : realType} {X : finType}
+    (d : X -> X -> R)
+    (mu nu : fdist R X) :
+  (forall x y, 0 <= d x y <= 1) -> 0 <= kantorovich_lifting d mu nu <= 1.
 Proof.
-  refine {| probability_mass := fun x => weighted_sum p (mu x) (nu x) |}.
-  - move=> x.
-    exact: weighted_sum_ge0
-      (probability_mass_ge0 mu x) (probability_mass_ge0 nu x).
-  - by rewrite sum_weighted_sum
-      !probability_mass_total weighted_sum_one.
-Defined.
-
-Definition joint_convex_mixture {R : realType} {X Y : finType}
-    (p : probability_weight R)
-    (gamma delta : joint_probability_distribution R X Y) :
-    joint_probability_distribution R X Y.
-Proof.
-  refine {| joint_probability_mass :=
-    fun x y => weighted_sum p (gamma x y) (delta x y) |}.
-  - move=> x y.
-    exact: weighted_sum_ge0
-      (joint_probability_mass_ge0 gamma x y)
-      (joint_probability_mass_ge0 delta x y).
-  - under eq_bigr do rewrite sum_weighted_sum.
-    by rewrite sum_weighted_sum
-      !joint_probability_mass_total weighted_sum_one.
-Defined.
-
-(** Lemma 2.5: convex combinations preserve both marginals. *)
-Lemma coupling_convex_mixture {R : realType} {X Y : finType}
-    (p : probability_weight R)
-    (mu1 mu2 : probability_distribution R X)
-    (nu1 nu2 : probability_distribution R Y)
-    (gamma1 : coupling mu1 nu1)
-    (gamma2 : coupling mu2 nu2) :
-  coupling (convex_mixture p mu1 mu2)
-           (convex_mixture p nu1 nu2).
-Proof.
-  refine {| coupling_distribution :=
-    joint_convex_mixture p (coupling_distribution gamma1)
-                            (coupling_distribution gamma2) |}.
-  - move=> x //=.
-    by rewrite sum_weighted_sum
-        (coupling_fst gamma1) (coupling_fst gamma2).
-  - move=> y //=.
-    by rewrite sum_weighted_sum
-        (coupling_snd gamma1) (coupling_snd gamma2).
-Defined.
+  move=> Hd.
+  have Hd0 : forall x y, 0 <= d x y by move=> x y; case/andP: (Hd x y).
+  apply/andP; split.
+  - exact: kantorovich_lifting_ge0.
+  - exact: kantorovich_lifting_le1.
+Qed.
 
 (** Sum a real-valued function over an explicit finite support.  The type [A]
     is the finite subtype of elements belonging to the finite set [A]. *)

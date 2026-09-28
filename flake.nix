@@ -39,7 +39,85 @@
         This is important: coqc, coq-lsp, pet, and your Coq libraries
         should all come from the same package set.
         */
-        coqPackages = pkgs.coqPackages;
+        /*
+        Use BenjaminCB/analysis (a fork of math-comp/analysis adding
+        theories/kantorovich.v, the Kantorovich/Wasserstein-1 lifting of
+        finitely-supported probability distributions) in place of upstream
+        mathcomp-analysis. That fork's base commit requires
+        rocq-mathcomp-algebra >= 2.6.0, so mathcomp is bumped in lockstep via
+        overrideScope (not a bare .override) so every other package in the
+        scope that references the mathcomp/mathcomp-analysis attrs
+        (mathcomp-ssreflect, mathcomp-algebra, mathcomp-order,
+        mathcomp-classical, mathcomp-reals, mathcomp-algebra-tactics,
+        mathcomp-zify, coq-lsp, ...) recomputes consistently instead of
+        colliding with the old 2.5.0/1.16.0 versions in the built environment.
+        */
+        coqPackages = pkgs.coqPackages.overrideScope (self: super: {
+          mathcomp = super.mathcomp.override { version = "2.6.0"; };
+          # nixpkgs' mathcomp-finmap defaultVersion only auto-selects a
+          # mathcomp-2.6.0-compatible release (2.2.4) when rocq-core is in
+          # 9.2-9.3; we're on 9.1.1 (which 2.2.4 also supports per its own
+          # comment), so request it explicitly instead of getting "broken".
+          mathcomp-finmap = super.mathcomp-finmap.override { version = "2.2.4"; };
+          # Neither nixpkgs nor upstream has tagged a mathcomp-2.6.0-
+          # compatible release of zify/algebra-tactics yet; zify's master
+          # branch has an untagged-in-nixpkgs "1.7.0+2.4+9.0" tag whose
+          # opam only requires mathcomp-ssreflect >= 2.4 (no upper bound),
+          # and algebra-tactics has no such tag at all, so pin it to its
+          # master HEAD (its own opam claims < 2.5, but that's untested
+          # metadata staleness, not a real incompatibility, per upstream
+          # practice of lagging opam bounds behind actual compatibility).
+          mathcomp-zify = super.mathcomp-zify.override {
+            mathcomp-boot = self.mathcomp-boot;
+            mathcomp-fingroup = self.mathcomp-fingroup;
+            mathcomp-algebra = self.mathcomp-algebra;
+            version = {
+              version = "1.7.0";
+              location = {
+                owner = "math-comp";
+                repo = "mczify";
+                rev = "387e262343f7844a8d6d896e153a2a30003fae1c";
+                hash = "sha256-2dEIx/c0zLagT9jW1aDE/87ztg51HrY1wP7ioQYpUTQ=";
+              };
+            };
+          };
+          mathcomp-algebra-tactics = super.mathcomp-algebra-tactics.override {
+            mathcomp-ssreflect = self.mathcomp-ssreflect;
+            mathcomp-algebra = self.mathcomp-algebra;
+            mathcomp-zify = self.mathcomp-zify;
+            version = {
+              version = "1.3.0";
+              location = {
+                owner = "math-comp";
+                repo = "algebra-tactics";
+                rev = "7da689bc90532e70ecf806110fdb4103ba0383b3";
+                hash = "sha256-x7JKp2Qr7lMMVm0qKKyf2cKyvR56oFedxPoH6jCjgnQ=";
+              };
+            };
+          };
+          mathcomp-analysis = super.mathcomp-analysis.override {
+            mathcomp = self.mathcomp;
+            version = {
+              # This "version" is a nominal label, not a real upstream
+              # release: it must parse as a version newer than "1.7" (and
+              # "0.6") because mathcomp-analysis/default.nix's
+              # patched-derivation1/2/3 use lib.versions.isLt on it to
+              # decide "did the classical/reals split exist yet" and
+              # silently turn old (or unparseable, e.g. "kantorovich-fork")
+              # versions' builds into no-ops. The fork is a straight fork
+              # of math-comp/analysis master past 1.18.0, so any numeric
+              # label above those thresholds is safe; the actual source
+              # comes from `location` below regardless of this string.
+              version = "1.19.0";
+              location = {
+                owner = "BenjaminCB";
+                repo = "analysis";
+                rev = "0c8068966857444a5f8cfed89f167062e7ed3f51";
+                hash = "sha256-76xsR0MLLGkSTPcBLxWT7wI+yZoNnQvS09pJep0RKyU=";
+              };
+            };
+          };
+        });
 
         /*
         Codex 0.145.0 depends on rusty_v8 149.2.0. The v8 crate normally
@@ -128,9 +206,12 @@
             mathcomp-algebra-tactics
             mathcomp-zify
 
-            coquelicot
+            # coquelicot and interval (which itself pulls in coquelicot) are
+            # dropped: neither is imported anywhere in src/*.v, and
+            # coquelicot 3.4.4 (nixpkgs' latest) fails to build against
+            # mathcomp-boot 2.6.0 (a real upstream incompatibility, not a
+            # packaging gap - no newer coquelicot release exists yet).
             flocq
-            interval
             equations
             hierarchy-builder
           ]);
