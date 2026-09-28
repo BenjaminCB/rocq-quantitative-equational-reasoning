@@ -113,7 +113,7 @@ Proof.
   - have Hne : (1 - ica_weight_val p * ica_weight_val q != 0)%R.
       by rewrite gt_eqF // ica_weight_product_lt1.
     rewrite !ica_probability_weightE /unstable.onem.
-    rewrite /ica_weight_product /ica_weight_assoc_inner /=.
+    rewrite ica_weight_productE ica_weight_assoc_innerE.
     field.
     apply: Hne.
 Qed.

@@ -1,5 +1,5 @@
-From mathcomp Require Import ssreflect ssrfun ssrbool eqtype choice ssralg ssrnum reals fintype.
-From mathcomp Require Import interval_inference.
+From mathcomp Require Import ssreflect ssrfun ssrbool eqtype choice ssralg ssrnum ssrint reals fintype.
+From mathcomp Require Import interval interval_inference.
 From Stdlib Require Import Logic.FunctionalExtensionality.
 Import preorder.Order.PreorderTheory Num.Theory GRing.Theory.
 
@@ -12,22 +12,84 @@ Unset Printing Implicit Defensive.
 
 Local Open Scope ring_scope.
 
-Record ica_weight (R : realType) := {
-  ica_weight_val : R;
-  ica_weight_open : (0 < ica_weight_val < 1)%R;
-}.
+(** An ICA weight is a real number known, by construction, to lie in the
+    *open* unit interval.  Mathcomp's canonical-structure interval machinery
+    ([mathcomp.algebra.interval_inference]) already provides the closed unit
+    interval as [{i01 R}] and the generic [{itv R & i}] family for an
+    arbitrary interval [i]; the open unit interval is simply
+    [{itv R & `]0,1[}], so no hand-rolled sigma type is needed for the
+    interval itself. *)
+Notation ica_weight R := {itv R & `]0%Z, 1%Z[}.
 
-(** Built as a single term (not via [have]/[case] on [ica_weight_open p])
-    so that the [{i01 R}] payload stays syntactically [ica_weight_val p],
-    making [ica_probability_weightE] below provable by [reflexivity]. *)
-Definition ica_probability_weight {R : realType}
-    (p : ica_weight R) : probability_weight R :=
-  Itv01 (ltW (elimT andP (ica_weight_open p)).1)
-        (ltW (elimT andP (ica_weight_open p)).2).
+Section ICAWeight.
+Context {R : realType}.
 
-Lemma ica_probability_weightE {R : realType} (p : ica_weight R) :
+Lemma itv_oo01_subdef (x : R) (x0 : 0 < x) (x1 : x < 1) :
+  Itv.spec (@Itv.num_sem R) (Itv.Real `]0%Z, 1%Z[) x.
+Proof. by apply/and3P; split; rewrite ?bnd_simp// gtr0_real. Qed.
+
+(** The only piece of interval-membership plumbing this file has to build
+    by hand: a smart constructor for [{itv R & `]0,1[}], in the style of
+    mathcomp's own [Itv01]/[PosNum]/[NngNum]. *)
+Definition mk_ica_weight (x : R) (x0 : 0 < x) (x1 : x < 1) : ica_weight R :=
+  Itv.mk (itv_oo01_subdef x0 x1).
+Arguments mk_ica_weight x x0 x1 : clear implicits.
+
+Definition ica_weight_val (p : ica_weight R) : R := p%:num.
+
+Lemma ica_weight_open (p : ica_weight R) :
+  (0 < ica_weight_val p < 1)%R.
+Proof. by rewrite /ica_weight_val; apply/andP; split; [exact: gt0 | exact: lt1]. Qed.
+
+(** [{itv R & `]0,1[}] widens to [{i01 R}] = [probability_weight R] for
+    free, via mathcomp's canonical sub-interval inference. *)
+Definition ica_probability_weight (p : ica_weight R) : probability_weight R :=
+  widen_itv p.
+
+Lemma ica_probability_weightE (p : ica_weight R) :
   (ica_probability_weight p)%:num = ica_weight_val p.
 Proof. by []. Qed.
+
+(** [1 - p], [p * q] land back in [`]0,1[} automatically: mathcomp's
+    canonical instances for negation/multiplication on interval subtypes
+    infer this on their own, so [%:itv] does all the work. *)
+Definition ica_weight_complement (p : ica_weight R) : ica_weight R :=
+  (1 - p%:num)%:itv.
+
+Lemma ica_weight_complementP (p : ica_weight R) :
+  ica_probability_weight (ica_weight_complement p) =
+  (1 - (ica_probability_weight p)%:num)%:i01.
+Proof. by apply: val_inj. Qed.
+
+Definition ica_weight_product (p q : ica_weight R) : ica_weight R :=
+  (p%:num * q%:num)%:itv.
+
+(** The division below is not automatically bounded by mathcomp's generic
+    inference (it has no way to know the numerator is dominated by the
+    denominator), so this one genuinely needs the numeric argument -- the
+    same argument as before, just packaged through [mk_ica_weight] instead
+    of a hand-rolled record. *)
+Definition ica_weight_assoc_inner (p q : ica_weight R) : ica_weight R.
+Proof.
+  refine (mk_ica_weight (((1 - p%:num) * q%:num) / (1 - p%:num * q%:num)) _ _).
+  - have /andP [Hpq_C0 Hpq_C1] :=
+      ica_weight_open (ica_weight_complement (ica_weight_product p q)).
+    rewrite /ica_weight_val /ica_weight_complement /ica_weight_product /=
+      in Hpq_C0 Hpq_C1.
+    by apply: divr_gt0.
+  - have /andP [Hpq_C0 Hpq_C1] :=
+      ica_weight_open (ica_weight_complement (ica_weight_product p q)).
+    rewrite /ica_weight_val /ica_weight_complement /ica_weight_product /=
+      in Hpq_C0 Hpq_C1.
+    rewrite (ltr_pdivrMr _ _ Hpq_C0) mul1r.
+    rewrite mulrBl mul1r.
+    rewrite ltrBlDr subrK.
+    have /andP [_ Hq1] := ica_weight_open q.
+    rewrite /ica_weight_val in Hq1.
+    apply: Hq1.
+Defined.
+
+End ICAWeight.
 
 Inductive ica_sym (R : realType) : Type :=
   | ica_plus : ica_weight R -> ica_sym R.
@@ -45,58 +107,6 @@ Definition ica_op {R : realType} {X : Type} (p : ica_weight R)
 
 Notation "x <+ p +> y" := (ica_op p x y)
   (at level 40, p at next level, left associativity).
-
-Definition ica_weight_complement {R : realType} 
-  (p : ica_weight R) : ica_weight R.
-Proof.
-  refine {| ica_weight_val := 1 - ica_weight_val p |}.
-  have /andP [Hp0 Hp1] := ica_weight_open p.
-  apply/andP; split.
-    - rewrite subr_gt0; apply Hp1.
-    - rewrite gtrBl; apply Hp0.
-Defined.
-
-Lemma ica_weight_complementP {R : realType} (p : ica_weight R) :
-  ica_probability_weight (ica_weight_complement p) =
-  (1 - (ica_probability_weight p)%:num)%:i01.
-Proof. by apply: val_inj. Qed.
-
-Definition ica_weight_product {R : realType}
-  (p q : ica_weight R) : ica_weight R.
-Proof.
-  refine {| ica_weight_val := ica_weight_val p * ica_weight_val q |}.
-  have /andP [Hp0 Hp1] := ica_weight_open p.
-  have /andP [Hq0 Hq1] := ica_weight_open q.
-  apply/andP; split.
-  - by apply mulr_gt0. 
-  - move: (ltW Hp0) => {}Hp0.
-    move: (ltW Hq0) => {}Hq0.
-    by apply mulr_ilt1.
-Defined. 
-
-Definition ica_weight_assoc_inner {R : realType}
-  (p q : ica_weight R) : ica_weight R.
-Proof.
-  refine {| 
-    ica_weight_val := 
-      ((1 - ica_weight_val p) * ica_weight_val q) / 
-      (1 - ica_weight_val p * ica_weight_val q) 
-  |}.
-  have /andP [Hpq_C0 Hpq_C1] := 
-    ica_weight_open (ica_weight_complement (ica_weight_product p q)).
-  rewrite /ica_weight_product /= in Hpq_C0 Hpq_C1.
-  have /andP [HCpq0 HCpq1] := 
-    ica_weight_open (ica_weight_product (ica_weight_complement p) q).
-  rewrite /ica_weight_product /= in HCpq0 HCpq1.
-  apply/andP; split.
-  - by apply divr_gt0.
-  - rewrite (ltr_pdivrMr _ _ Hpq_C0) mul1r.
-    rewrite mulrBl mul1r.
-    rewrite ltrBlDr subrK.
-    have /andP [_ Hq1] := ica_weight_open q.
-    apply: Hq1.
-Defined.
-
 
 Definition ica_full_space (R : realType) (n : nat) : fuzzy_space R.
 Proof.
@@ -118,7 +128,7 @@ Definition ica_interp_rel {R : realType}
   | _, _ => 1
   end.
 
-Definition ica_interp_space (R : realType) 
+Definition ica_interp_space (R : realType)
   (eps delta : R)
   (Heps : (0 <= eps <= 1)%R)
   (Hdelta : (0 <= delta <= 1)%R) : fuzzy_space R.

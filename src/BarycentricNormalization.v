@@ -167,7 +167,8 @@ Lemma weighted_sum_gt0 {R : realType} (p : ica_weight R) (a b : R) :
 Proof.
   move => Ha Hb.
   have /andP [Hp0 Hp1] := ica_weight_open p.
-  case: (ltP 0 a) => Ea; case: (ltP 0 b) => Eb; rewrite /weighted_sum //=; nra.
+  case: (ltP 0 a) => Ea; case: (ltP 0 b) => Eb;
+    rewrite /weighted_sum /weight ica_probability_weightE //=; nra.
 Qed.
 
 Lemma term_distribution_support {R : realType} {X : finType}
@@ -205,13 +206,14 @@ Qed.
 
 Definition ica_weight_half (R : realType) : ica_weight R.
 Proof.
-  refine {| ica_weight_val := 1 / 2%:R |}.
-  apply/andP; split; lra.
+  have H01 : (0 < 1 / 2%:R :> R) by lra.
+  have H12 : (1 / 2%:R < 1 :> R) by lra.
+  exact: mk_ica_weight H01 H12.
 Defined.
 
 Definition ica_weight_clamp {R : realType} (r : R) : ica_weight R :=
   match Bool.bool_dec (0 < r < 1) true with
-  | left H => {| ica_weight_val := r; ica_weight_open := H |}
+  | left H => mk_ica_weight (elimT andP H).1 (elimT andP H).2
   | right _ => ica_weight_half R
   end.
 
@@ -311,7 +313,7 @@ Proof.
   }
   have Hne0 : (1 - mu x != 0) by rewrite gt_eqF //= subr_gt0.
   apply: probability_distribution_ext => y.
-  rewrite /convex_mixture /weighted_sum //= /cond_mass.
+  rewrite /convex_mixture /weighted_sum //= /cond_mass /weight ica_probability_weightE.
 
   rewrite ica_weight_clampE; last by apply/andP; split.
   case: ifP => [Heq | Hneq]; case: ifP => [Hlt1' | Hnlt1'].
