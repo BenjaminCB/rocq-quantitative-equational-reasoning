@@ -5,7 +5,7 @@ From mathcomp.algebra_tactics Require Import ring lra.
 
 From Template Require Import Signature FuzzyRelation FRelDeduction.
 From Template Require Import ProbabilityDistribution KantorovichProperties ICA.
-From Template Require Import ICAKantorovichSoundness.
+From Template Require Import ICAKantorovichSoundness KantorovichCompactness.
 
 Set Implicit Arguments.
 Unset Strict Implicit.
@@ -872,4 +872,670 @@ Proof.
                          ---- exact: HD3.
                          ---- exact: HDb0.
                          ---- exact: HD4.
+Qed.
+
+(** Corollary 4.8's [EqJ] case ([<-] direction): distributional equality is
+    preserved by every [EqJ] rule.  Rather than induct on [frel_derives]
+    directly, this packages the fact as ordinary soundness against the
+    (metric-independent) Kantorovich algebra at the trivial metric, reusing
+    [derives_fin_sound]/[derives_full_sound] and [kantorovich_models_ica]. *)
+Definition ica_dirac_interp {R : realType} {X : finType}
+    (d : X -> X -> R) (Hd : forall x y, (0 <= d x y <= 1)%R) :
+    interpretation (ica_finite_space X) (kantorovich_algebra Hd) :=
+  @Build_interpretation R (@ica_signature R) (ica_finite_space X)
+    (kantorovich_algebra Hd)
+    (fun x => dirac_fdist x)
+    (fun x y => kantorovich_lifting_le1 (dirac_fdist x) (dirac_fdist y) Hd).
+
+Theorem term_distribution_eq_sound {R : realType} {X : finType}
+    (mode : frel_derivation_mode) (s t : term (@ica_signature R) X) :
+  @frel_derives R ica_signature (@ica_theory R) mode (ica_finite_space X)
+    (EqJ s t) ->
+  term_distribution s = term_distribution t.
+Proof.
+  pose d : X -> X -> R := fun _ _ => 0.
+  have Hd : forall x y : X, (0 <= d x y <= 1)%R.
+    by move => x y; apply/andP; split; [exact: lexx | exact: ler01].
+  have E : forall u : term (@ica_signature R) X,
+      fuzzy_eval (kantorovich_algebra Hd) (ica_dirac_interp Hd) u =
+      term_distribution u.
+    move => u.
+    by rewrite -(term_distributionE Hd u).
+  case: mode.
+  - move => H.
+    have Hsat := derives_fin_sound (@kantorovich_models_ica R X d Hd) H
+      (ica_dirac_interp Hd).
+    move: Hsat => /=.
+    by rewrite -(E s) -(E t).
+  - move => H.
+    have Hsat := derives_full_sound (@kantorovich_models_ica R X d Hd) H
+      (ica_dirac_interp Hd).
+    move: Hsat => /=.
+    by rewrite -(E s) -(E t).
+Qed.
+
+(** Corollary 4.8's [EqJ] case ([->] direction): the new lemma.  Strong
+    induction on the size of [s]'s support, applying [extract_exists] to
+    both [s] and [t] at a common point and recursing on the remainders,
+    whose conditional distributions coincide by hypothesis. *)
+Lemma term_distribution_complete_bound {R : realType} {X : finType} :
+  forall n (s t : term (@ica_signature R) X),
+    (#|distribution_support (term_distribution s)| <= n)%N ->
+    term_distribution s = term_distribution t ->
+    @frel_derives R ica_signature (@ica_theory R) FRelFinite
+      (ica_finite_space X) (EqJ s t).
+Proof.
+  elim => [ | n IH] s t Hn Heq.
+  - exfalso.
+    have Hne := term_distribution_support_neq0 s.
+    case/set0Pn: Hne => x0 Hx0.
+    move: Hn; rewrite leqn0 => /eqP Hn0.
+    have HA0 : distribution_support (term_distribution s) == finset.set0.
+      by rewrite -cards_eq0 Hn0.
+    move/eqP: HA0 => HA0.
+    move: Hx0; rewrite HA0 inE.
+    done.
+  - have Hne := term_distribution_support_neq0 s.
+    case/set0Pn: Hne => x Hxin.
+    have Hx : term_distribution s x != 0 by move: Hxin; rewrite inE.
+    have Hpos : 0 < term_distribution s x by rewrite lt0r Hx fdist_ge0.
+    have Heqx : term_distribution s x = term_distribution t x by rewrite Heq.
+    case: (eqVneq (term_distribution s x) 1) => [Hx1 | Hxn1].
+    + have Hds : term_distribution s = dirac_fdist x := fdist_mass1_dirac Hx1.
+      have Hdt : term_distribution t = dirac_fdist x by rewrite -Heq.
+      apply: FD_EqTrans.
+      * exact: (dirac_uniqueness FRelFinite Hds).
+      * apply: FD_EqSym.
+        exact: (dirac_uniqueness FRelFinite Hdt).
+    + have Hxlt1 : term_distribution s x < 1
+        by rewrite lt_neqAle Hxn1 (fdist_le1 (term_distribution s) x).
+      have Hpos' : 0 < term_distribution t x by rewrite -Heqx.
+      have Hxlt1' : term_distribution t x < 1 by rewrite -Heqx.
+      have [qs [ws [Ds Cs]]] := extract_exists FRelFinite Hpos.
+      have [qt [wt [Dt Ct]]] := extract_exists FRelFinite Hpos'.
+      have [Eqs Ews] := Cs Hxlt1.
+      have [Eqt Ewt] := Ct Hxlt1'.
+      have Eq : qs = qt.
+        apply: ica_weight_val_inj.
+        by rewrite Eqs Heqx -Eqt.
+      have Ew : term_distribution ws = term_distribution wt.
+        by rewrite Ews Ewt Heq.
+      have Hcard := cardsD1 x (distribution_support (term_distribution s)).
+      rewrite Hxin add1n in Hcard.
+      have Hbound : (#|distribution_support (term_distribution s) :\ x| <= n)%N.
+        by rewrite Hcard ltnS in Hn.
+      have Hbound' : (#|distribution_support (term_distribution ws)| <= n)%N.
+        by rewrite Ews (condition_support Hxlt1 Hxin).
+      have IHws := IH ws wt Hbound' Ew.
+      rewrite -Eq in Dt.
+      apply: FD_EqTrans; first exact: Ds.
+      apply: FD_EqTrans.
+      * apply: ica_plus_congr; [exact: FD_EqRefl | exact: IHws].
+      * exact: FD_EqSym Dt.
+Qed.
+
+Theorem term_distribution_complete {R : realType} {X : finType}
+    (s t : term (@ica_signature R) X) :
+  term_distribution s = term_distribution t ->
+  @frel_derives R ica_signature (@ica_theory R) FRelFinite
+    (ica_finite_space X) (EqJ s t).
+Proof.
+  exact: term_distribution_complete_bound
+    (#|distribution_support (term_distribution s)|) s t (leqnn _).
+Qed.
+
+(** Corollary 4.8, [EqJ] case (M1). *)
+Theorem term_distribution_correctness {R : realType} {X : finType}
+    (mode : frel_derivation_mode) (s t : term (@ica_signature R) X) :
+  term_distribution s = term_distribution t <->
+  @frel_derives R ica_signature (@ica_theory R) mode (ica_finite_space X)
+    (EqJ s t).
+Proof.
+  split.
+  - move => Heq.
+    have Hfin := term_distribution_complete Heq.
+    case: mode.
+    + exact: Hfin.
+    + exact: derives_fin_to_full Hfin.
+  - exact: term_distribution_eq_sound.
+Qed.
+
+(** Every [fdist]'s support is nonempty: an empty support would force the
+    total mass to sum to [0], contradicting [fdist_1]. *)
+Lemma fdist_support_neq0 {R : realType} {X : finType} (mu : fdist R X) :
+  distribution_support mu != finset.set0.
+Proof.
+  apply/negP => /eqP H0.
+  have Hall : forall x : X, mu x = 0.
+    move => x.
+    have Hnotin : x \notin distribution_support mu by rewrite H0 inE.
+    apply/eqP; move: Hnotin; rewrite inE negbK; done.
+  have Hsum0 : \sum_(x : X) mu x = 0 by apply: big1 => x _; exact: Hall x.
+  have Htot := fdist_1 mu.
+  rewrite Hsum0 in Htot.
+  have H01 : (1:R) != 0 := oner_neq0 R.
+  move: H01.
+  by rewrite -Htot eqxx.
+Qed.
+
+(** [set0Pn]'s first argument is the set itself (not the disequality proof),
+    so it must be supplied explicitly to extract a witness; this packages
+    that once for reuse in [term_of_fdist_bound]. *)
+Definition fdist_support_witness {R : realType} {X : finType}
+    (mu : fdist R X) : exists x : X, x \in distribution_support mu :=
+  set0Pn (distribution_support mu) (fdist_support_neq0 mu).
+
+(** M2 — canonical term for an arbitrary [fdist]: fuel-bounded structural
+    recursion, peeling off a support point [x] via [condition] until the
+    remaining mass is entirely concentrated at a single point. The fuel
+    [n] is instantiated with (an upper bound on) the support's cardinality;
+    it strictly decreases across the recursive call since [condition]
+    removes [x] from the support ([condition_support]). *)
+Fixpoint term_of_fdist_bound {R : realType} {X : finType}
+    (n : nat) (mu : fdist R X) : term (@ica_signature R) X :=
+  let x := xchoose (fdist_support_witness mu) in
+  if mu x == 1 then Var x
+  else match n with
+       | 0 => Var x
+       | n'.+1 =>
+           Var x <+ (ica_weight_clamp (mu x)) +>
+             term_of_fdist_bound n' (condition mu x)
+       end.
+
+Lemma term_of_fdist_bound_correct {R : realType} {X : finType} :
+  forall n (mu : fdist R X),
+    (#|distribution_support mu| <= n)%N ->
+    term_distribution (term_of_fdist_bound n mu) = mu.
+Proof.
+  elim => [ | n IH] mu Hn.
+  - exfalso.
+    have Hne := fdist_support_neq0 mu.
+    case/set0Pn: Hne => x0 Hx0.
+    move: Hn; rewrite leqn0 => /eqP Hn0.
+    have HA0 : distribution_support mu == finset.set0 by rewrite -cards_eq0 Hn0.
+    move/eqP: HA0 => HA0.
+    move: Hx0; rewrite HA0 inE.
+    done.
+  - rewrite /term_of_fdist_bound /=.
+    have Hxin0 : xchoose (fdist_support_witness mu) \in distribution_support mu :=
+      xchooseP (fdist_support_witness mu).
+    set x := xchoose (fdist_support_witness mu).
+    case: eqP => [Hx1 | Hxn1].
+    + by rewrite (fdist_mass1_dirac Hx1).
+    + have Hxlt1 : mu x < 1.
+        rewrite lt_neqAle (fdist_le1 mu x) andbT.
+        apply/negP => /eqP Habs.
+        exact: Hxn1 Habs.
+      rewrite term_distribution_op /=.
+      have Hcard := cardsD1 x (distribution_support mu).
+      rewrite Hxin0 add1n in Hcard.
+      have Hbound : (#|distribution_support mu :\ x| <= n)%N.
+        by rewrite Hcard ltnS in Hn.
+      have Hbound' : (#|distribution_support (condition mu x)| <= n)%N.
+        by rewrite (condition_support Hxlt1 Hxin0).
+      rewrite (IH (condition mu x) Hbound').
+      exact: condition_recover Hxlt1 Hxin0.
+Qed.
+
+(** M2 — the canonical term itself, and its two defining properties:
+    it denotes the given distribution, and every term is [EqJ]-provably
+    equal to the canonical term of its own denotation. *)
+Definition term_of_fdist {R : realType} {X : finType}
+    (mu : fdist R X) : term (@ica_signature R) X :=
+  term_of_fdist_bound #|distribution_support mu| mu.
+
+Theorem term_of_fdist_correct {R : realType} {X : finType}
+    (mu : fdist R X) :
+  term_distribution (term_of_fdist mu) = mu.
+Proof.
+  exact: term_of_fdist_bound_correct #|distribution_support mu| mu (leqnn _).
+Qed.
+
+Theorem term_of_fdist_derives {R : realType} {X : finType}
+    (mode : frel_derivation_mode) (s : term (@ica_signature R) X) :
+  @frel_derives R ica_signature (@ica_theory R) mode (ica_finite_space X)
+    (EqJ s (term_of_fdist (term_distribution s))).
+Proof.
+  apply/term_distribution_correctness.
+  by rewrite term_of_fdist_correct.
+Qed.
+
+(** [dist_map f mu]: the pushforward of [mu] along [f], i.e. the distribution
+    that assigns to [x] the total [mu]-mass of [f]'s fiber over [x]. Used
+    (M3) to relate a coupling's joint distribution, viewed as an [fdist] on
+    a product type, to its two marginals. *)
+Definition dist_map {R : realType} {Y X : finType}
+    (f : Y -> X) (mu : fdist R Y) : fdist R X.
+Proof.
+  refine {| fdist_val := fun x => \sum_(y : Y | f y == x) mu y;
+            fdist_ge0 := _;
+            fdist_1 := _ |}.
+  - move => x; apply: sumr_ge0 => y _; exact: fdist_ge0.
+  - rewrite -(fdist_1 mu) (partition_big f xpredT) //=.
+Defined.
+
+Lemma dist_mapE {R : realType} {Y X : finType}
+    (f : Y -> X) (mu : fdist R Y) (x : X) :
+  dist_map f mu x = \sum_(y : Y | f y == x) mu y.
+Proof. by []. Qed.
+
+Lemma dist_map_dirac {R : realType} {Y X : finType}
+    (f : Y -> X) (y0 : Y) :
+  dist_map f (@dirac_fdist R Y y0) = dirac_fdist (f y0).
+Proof.
+  apply: fdist_ext => x.
+  rewrite dist_mapE /dirac_fdist /=.
+  case: eqP => [-> | Hne].
+  - rewrite (bigD1 y0) //= eqxx big1 ?addr0 //.
+    move => y' /andP [_ Hy']; by rewrite (negbTE Hy').
+  - apply: big1 => y /eqP Hfy.
+    case: eqP => [Hy0 | //].
+    exfalso; apply: Hne; by rewrite -Hfy Hy0.
+Qed.
+
+Lemma dist_map_convex_mixture {R : realType} {Y X : finType}
+    (f : Y -> X) (p : probability_weight R) (mu nu : fdist R Y) :
+  dist_map f (convex_mixture p mu nu) =
+  convex_mixture p (dist_map f mu) (dist_map f nu).
+Proof.
+  apply: fdist_ext => x.
+  rewrite convex_mixtureE !dist_mapE.
+  under eq_bigr => y _ do rewrite convex_mixtureE.
+  rewrite /weighted_sum big_split -!big_distrr //=.
+Qed.
+
+(** Pushing a term's induced distribution forward along [f] is the same as
+    substituting [Var \o f] into the term and taking the distribution of the
+    result: renaming variables and interpreting commute. *)
+Lemma term_distribution_subst_var {R : realType} {Y X : finType}
+    (f : Y -> X) (e : term (@ica_signature R) Y) :
+  term_distribution (subst_term (Var \o f) e) = dist_map f (term_distribution e).
+Proof.
+  elim: e => [y | ff args IH] /=.
+  - by rewrite dist_map_dirac.
+  - case: ff args IH => p args IH /=.
+    by rewrite (IH (inord 0)) (IH (inord 1)) dist_map_convex_mixture.
+Qed.
+
+(** The joint distribution underlying a coupling, viewed as an [fdist] over
+    the product finType [X * Y] rather than the curried [joint_fdist]. *)
+Definition fdist_of_coupling {R : realType} {X Y : finType}
+    {mu : fdist R X} {nu : fdist R Y} (gamma : coupling mu nu) :
+    fdist R (X * Y)%type.
+Proof.
+  refine {| fdist_val := fun p => gamma p.1 p.2;
+            fdist_ge0 := _;
+            fdist_1 := _ |}.
+  - move => p; exact: joint_ge0.
+  - by rewrite -pair_bigA; exact: joint_1.
+Defined.
+
+Lemma dist_map_fst_coupling {R : realType} {X Y : finType}
+    {mu : fdist R X} {nu : fdist R Y} (gamma : coupling mu nu) :
+  dist_map fst (fdist_of_coupling gamma) = mu.
+Proof.
+  apply: fdist_ext => x.
+  rewrite dist_mapE /=.
+  have Hk : forall p : X * Y, p.1 == x -> (x, p.2) = p.
+    move => [x' y'] /= /eqP ->; reflexivity.
+  rewrite (reindex_onto (fun y : Y => (x, y)) snd Hk) /=.
+  rewrite -(coupling_fst gamma x).
+  apply: eq_bigl => y; by rewrite !eqxx.
+Qed.
+
+Lemma dist_map_snd_coupling {R : realType} {X Y : finType}
+    {mu : fdist R X} {nu : fdist R Y} (gamma : coupling mu nu) :
+  dist_map snd (fdist_of_coupling gamma) = nu.
+Proof.
+  apply: fdist_ext => y.
+  rewrite dist_mapE /=.
+  have Hk : forall p : X * Y, p.2 == y -> (p.1, y) = p.
+    move => [x' y'] /= /eqP ->; reflexivity.
+  rewrite (reindex_onto (fun x : X => (x, y)) fst Hk) /=.
+  rewrite -(coupling_snd gamma y).
+  apply: eq_bigl => x; by rewrite !eqxx.
+Qed.
+
+(** M3 -- the coupling-indexed shape [ica_coupling_term gamma], substituted
+    along the first (resp. second) projection, recovers [s] (resp. [t]).
+    [gamma]'s underlying joint distribution, packaged via
+    [fdist_of_coupling] as an [fdist] on [X * X], is normalized to a term
+    ([term_of_fdist], M2) over variables in its own support; substituting
+    the first (resp. second) projection back in denotes the first
+    (resp. second) marginal ([dist_map_fst_coupling]/
+    [dist_map_snd_coupling], via [coupling_fst]/[coupling_snd]), which is
+    [term_distribution s] (resp. [t]) by construction of [gamma]'s type --
+    so [term_distribution_correctness] (M1) concludes. *)
+Definition ica_coupling_term {R : realType} {X : finType}
+    (s t : term (@ica_signature R) X)
+    (gamma : coupling (term_distribution s) (term_distribution t)) :
+    term (@ica_signature R) (X * X)%type :=
+  term_of_fdist (fdist_of_coupling gamma).
+
+Theorem ica_coupling_term_fst {R : realType} {X : finType}
+    (mode : frel_derivation_mode)
+    (s t : term (@ica_signature R) X)
+    (gamma : coupling (term_distribution s) (term_distribution t)) :
+  @frel_derives R ica_signature (@ica_theory R) mode (ica_finite_space X)
+    (EqJ (subst_term (Var \o fst) (ica_coupling_term gamma)) s).
+Proof.
+  apply/term_distribution_correctness.
+  rewrite term_distribution_subst_var /ica_coupling_term term_of_fdist_correct.
+  exact: dist_map_fst_coupling.
+Qed.
+
+Theorem ica_coupling_term_snd {R : realType} {X : finType}
+    (mode : frel_derivation_mode)
+    (s t : term (@ica_signature R) X)
+    (gamma : coupling (term_distribution s) (term_distribution t)) :
+  @frel_derives R ica_signature (@ica_theory R) mode (ica_finite_space X)
+    (EqJ (subst_term (Var \o snd) (ica_coupling_term gamma)) t).
+Proof.
+  apply/term_distribution_correctness.
+  rewrite term_distribution_subst_var /ica_coupling_term term_of_fdist_correct.
+  exact: dist_map_snd_coupling.
+Qed.
+
+(** M4 -- Lemma 4.9's quantitative step, specialized to [ica_coupling_term].
+    Unlike M1-M3, this needs a genuinely new ingredient: the "expected
+    [d]-cost" of an arbitrary joint distribution on [X * X] (not just of a
+    bona fide [coupling]), together with the fact that conditioning on one
+    support point decomposes this cost the same way [condition_recover]
+    decomposes the distribution itself. Neither [extract_exists] nor
+    [term_of_fdist_bound]'s own correctness proof ever touched a metric, so
+    this has no counterpart there. *)
+Definition joint_cost {R : realType} {X : finType}
+    (d : X -> X -> R) (mu : fdist R (X * X)%type) : R :=
+  \sum_(p : X * X) mu p * d p.1 p.2.
+
+(** [joint_cost] agrees with upstream's [coupling_cost] once [mu] actually
+    comes from a [coupling], via the same [pair_bigA] reindexing
+    [fdist_of_coupling]'s own [fdist_1] obligation used. *)
+Lemma joint_cost_coupling {R : realType} {X : finType}
+    (d : X -> X -> R) {mu nu : fdist R X} (gamma : coupling mu nu) :
+  joint_cost d (fdist_of_coupling gamma) = coupling_cost d gamma.
+Proof.
+  rewrite /joint_cost /coupling_cost /=.
+  rewrite pair_bigA.
+  by [].
+Qed.
+
+Lemma joint_cost_range {R : realType} {X : finType}
+    (d : X -> X -> R) (Hd : forall x y, (0 <= d x y <= 1)%R)
+    (mu : fdist R (X * X)%type) :
+  (0 <= joint_cost d mu <= 1)%R.
+Proof.
+  apply/andP; split.
+  - rewrite /joint_cost; apply: sumr_ge0 => p _.
+    apply: mulr_ge0; [exact: fdist_ge0 | by case/andP: (Hd p.1 p.2)].
+  - rewrite /joint_cost.
+    apply: (le_trans (y := \sum_(p : X*X) mu p * 1)).
+    + apply: ler_sum => p _.
+      apply: ler_wpM2l; [exact: fdist_ge0 | by case/andP: (Hd p.1 p.2)].
+    + under eq_bigr => p _ do rewrite mulr1.
+      by rewrite fdist_1.
+Qed.
+
+(** The "law of total expectation" step: peeling the mass at [x] off [mu]
+    splits its [d]-cost into [x]'s own contribution plus the (rescaled)
+    cost of the conditional distribution -- the quantitative analogue of
+    [condition_recover]. This is what lets [ICA_Interp] absorb the
+    recursive step in [term_of_fdist_bound_QEqJ] below. *)
+Lemma joint_cost_condition {R : realType} {X : finType}
+    (d : X -> X -> R) (mu : fdist R (X * X)%type) (x : X * X) :
+  (mu x < 1)%R -> x \in distribution_support mu ->
+  joint_cost d mu =
+  weighted_sum (ica_probability_weight (ica_weight_clamp (mu x)))
+    (d x.1 x.2) (joint_cost d (condition mu x)).
+Proof.
+  move => Hlt1 Hin.
+  have Hxne0 : mu x != 0 by move: Hin; rewrite inE.
+  have Hxgt0 : 0 < mu x by rewrite lt0r Hxne0 fdist_ge0.
+  have HqE : ica_weight_val (ica_weight_clamp (mu x)) = mu x.
+    apply: ica_weight_clampE.
+    by apply/andP; split.
+  have Hne0 : (1 - mu x != 0) by rewrite gt_eqF //= subr_gt0.
+  rewrite /weighted_sum ica_weightE HqE.
+  rewrite /joint_cost.
+  rewrite [X in X = _](bigD1 x) //=.
+  congr (_ + _).
+  rewrite [X in _ = _ * X](bigD1 x) //=.
+  rewrite /cond_mass Hlt1 eqxx mul0r add0r.
+  rewrite big_distrr /=.
+  apply: eq_bigr => p Hp.
+  rewrite (negbTE Hp).
+  rewrite mulrA mulrCA divff // mulr1.
+  reflexivity.
+Qed.
+
+(** M4's algebraic engine: a reusable instance of the [ICA_Interp] axiom
+    along an arbitrary substitution, playing the same role for [QEqJ] that
+    [ica_merge_instance]/[general_merge] play for [EqJ] -- built the same
+    way, via [FD_Subst] into the 4-point interpolation space, with the 13
+    "unrelated pairs" (everything except the two designated [eps]/[delta]
+    slots) discharged by [FD_Max] regardless of what the substitution sends
+    them to. *)
+Lemma ica_interp_instance {R : realType} (mode : frel_derivation_mode)
+    (X : fuzzy_space R) (p : ica_weight R) (eps delta : R)
+    (Heps : (0 <= eps <= 1)%R) (Hdelta : (0 <= delta <= 1)%R)
+    (a b c e : term (@ica_signature R) (fcarrier X)) :
+  @frel_derives R ica_signature (@ica_theory R) mode X (QEqJ eps a b) ->
+  @frel_derives R ica_signature (@ica_theory R) mode X (QEqJ delta c e) ->
+  @frel_derives R ica_signature (@ica_theory R) mode X
+    (QEqJ (weighted_sum (ica_probability_weight p) eps delta)
+      (a <+ p +> c) (b <+ p +> e)).
+Proof.
+  move => Hab Hce.
+  pose sigma := fun i : 'I_4 =>
+    match (i : nat) with
+    | 0 => a
+    | 1 => c
+    | 2 => b
+    | 3 => e
+    | _ => a
+    end.
+  have E0 : sigma (inord 0) = a by rewrite /sigma inordK.
+  have E1 : sigma (inord 1) = c by rewrite /sigma inordK.
+  have E2 : sigma (inord 2) = b by rewrite /sigma inordK.
+  have E3 : sigma (inord 3) = e by rewrite /sigma inordK.
+  have -> : (a <+ p +> c) = subst_term sigma ((Var (inord 0)) <+ p +> (Var (inord 1))).
+    by rewrite ica_subst_op /= E0 E1.
+  have -> : (b <+ p +> e) = subst_term sigma ((Var (inord 2)) <+ p +> (Var (inord 3))).
+    by rewrite ica_subst_op /= E2 E3.
+  apply: (FD_Subst
+    (X := ica_interp_space Heps Hdelta)
+    (phi := QEqJ (weighted_sum (ica_probability_weight p) eps delta)
+      ((Var (inord 0)) <+ p +> (Var (inord 1)))
+      ((Var (inord 2)) <+ p +> (Var (inord 3))))
+    (sigma := sigma)).
+  - apply: FD_Init.
+    exact: (ICA_Interp p Heps Hdelta).
+  - move => x y.
+    rewrite /= /ica_interp_rel /sigma.
+    case: (nat_of_ord x) => [ | [ | x' ] ];
+    case: (nat_of_ord y) => [ | [ | [ | [ | y' ] ] ] ] => //=;
+    try exact: FD_Max.
+Qed.
+
+(** M4 itself: for every fixed fuel-bounded [mu] on [X * X], substituting
+    the two projections into [term_of_fdist_bound n mu] is provably
+    [QEqJ]-close by [mu]'s own [d]-cost -- with a finite proof, mirroring
+    [term_of_fdist_bound_correct]'s recursion on the same peeled-point
+    structure, but discharging the successor case via [ica_interp_instance]
+    instead of [condition_recover]. *)
+Lemma term_of_fdist_bound_QEqJ {R : realType} {X : finType}
+    (d : X -> X -> R) (Hd : forall x y, (0 <= d x y <= 1)%R) :
+  forall n (mu : fdist R (X * X)%type),
+    (#|distribution_support mu| <= n)%N ->
+    @frel_derives R ica_signature (@ica_theory R) FRelFinite
+      (finite_fuzzy_space Hd)
+      (QEqJ (joint_cost d mu)
+        (subst_term (Var \o fst) (term_of_fdist_bound n mu))
+        (subst_term (Var \o snd) (term_of_fdist_bound n mu))).
+Proof.
+  elim => [ | n IH] mu Hn.
+  - exfalso.
+    have Hne := fdist_support_neq0 mu.
+    case/set0Pn: Hne => x0 Hx0.
+    move: Hn; rewrite leqn0 => /eqP Hn0.
+    have HA0 : distribution_support mu == finset.set0 by rewrite -cards_eq0 Hn0.
+    move/eqP: HA0 => HA0.
+    move: Hx0; rewrite HA0 inE.
+    done.
+  - rewrite /term_of_fdist_bound -/term_of_fdist_bound.
+    have Hxin0 : xchoose (fdist_support_witness mu) \in distribution_support mu :=
+      xchooseP (fdist_support_witness mu).
+    set x := xchoose (fdist_support_witness mu).
+    case: eqP => [Hx1 | Hxn1].
+    + have Hdirac : mu = dirac_fdist x := fdist_mass1_dirac Hx1.
+      have Hcost : joint_cost d mu = d x.1 x.2.
+        rewrite /joint_cost Hdirac (bigD1 x) //= eqxx mul1r big1 ?addr0 //.
+        move => y /negbTE Hy.
+        by rewrite /dirac_fdist /= Hy mul0r.
+      rewrite Hcost /=.
+      exact: (@FD_UseVariables R ica_signature (@ica_theory R) FRelFinite
+        (finite_fuzzy_space Hd) x.1 x.2).
+    + have Hxlt1 : mu x < 1.
+        rewrite lt_neqAle (fdist_le1 mu x) andbT.
+        apply/negP => /eqP Habs.
+        exact: Hxn1 Habs.
+      have Hcard := cardsD1 x (distribution_support mu).
+      rewrite Hxin0 add1n in Hcard.
+      have Hbound : (#|distribution_support mu :\ x| <= n)%N.
+        by rewrite Hcard ltnS in Hn.
+      have Hbound' : (#|distribution_support (condition mu x)| <= n)%N.
+        by rewrite (condition_support Hxlt1 Hxin0).
+      have IHw := IH (condition mu x) Hbound'.
+      set w := term_of_fdist_bound n (condition mu x).
+      have Heps : (0 <= d x.1 x.2 <= 1)%R := Hd x.1 x.2.
+      have Hdelta : (0 <= joint_cost d (condition mu x) <= 1)%R :=
+        joint_cost_range Hd (condition mu x).
+      rewrite (ica_subst_op (Var \o fst)) (ica_subst_op (Var \o snd)).
+      rewrite (joint_cost_condition d Hxlt1 Hxin0).
+      rewrite /=.
+      exact: (ica_interp_instance (ica_weight_clamp (mu x)) Heps Hdelta
+        (@FD_UseVariables R ica_signature (@ica_theory R) FRelFinite
+          (finite_fuzzy_space Hd) x.1 x.2)
+        IHw).
+Qed.
+
+(** M4, specialized to an actual coupling: [coupling_cost d gamma] is
+    [QEqJ]-provable (finitely!) between the two substituted instances of
+    [ica_coupling_term gamma], for every fixed [gamma]. This is exactly the
+    ingredient M5 (Proposition 4.10) needs to feed into
+    [FD_OrderComplete]. *)
+Theorem ica_coupling_term_QEqJ {R : realType} {X : finType}
+    (d : X -> X -> R) (Hd : forall x y, (0 <= d x y <= 1)%R)
+    (s t : term (@ica_signature R) X)
+    (gamma : coupling (term_distribution s) (term_distribution t)) :
+  @frel_derives R ica_signature (@ica_theory R) FRelFinite
+    (finite_fuzzy_space Hd)
+    (QEqJ (coupling_cost d gamma)
+      (subst_term (Var \o fst) (ica_coupling_term gamma))
+      (subst_term (Var \o snd) (ica_coupling_term gamma))).
+Proof.
+  rewrite -(joint_cost_coupling d gamma).
+  rewrite /ica_coupling_term /term_of_fdist.
+  exact: (term_of_fdist_bound_QEqJ Hd (leqnn #|distribution_support (fdist_of_coupling gamma)|)).
+Qed.
+
+(** M5's one piece of bridging plumbing: an [EqJ] fact derivable at the
+    trivial-metric space [ica_finite_space X] (M1-M3's ambient throughout,
+    since equational derivability never depends on the metric) transports
+    unchanged to any [d]-metric space [finite_fuzzy_space Hd] over the same
+    carrier. No induction on the derivation is needed: [ica_finite_space X]'s
+    relation is the constant [1], so substituting the identity ([Var]) via
+    [FD_Subst] discharges its side conditions with bare [FD_Max] regardless
+    of [d], and [subst_term_var] collapses the identity substitution back to
+    the original terms. *)
+Lemma ica_finite_eqj_reambient {R : realType} {X : finType}
+    (d : X -> X -> R) (Hd : forall x y, (0 <= d x y <= 1)%R)
+    (mode : frel_derivation_mode) (s t : term (@ica_signature R) X) :
+  @frel_derives R ica_signature (@ica_theory R) mode (ica_finite_space X)
+    (EqJ s t) ->
+  @frel_derives R ica_signature (@ica_theory R) mode (finite_fuzzy_space Hd)
+    (EqJ s t).
+Proof.
+  move => H.
+  have H' : @frel_derives R ica_signature (@ica_theory R) mode
+      (finite_fuzzy_space Hd)
+      (subst_judgement (@Var (@ica_signature R) X) (EqJ s t)).
+    apply: (FD_Subst (X := ica_finite_space X)).
+    - exact: H.
+    - move => x y.
+      exact: FD_Max.
+  by rewrite /subst_judgement !subst_term_var in H'.
+Qed.
+
+(** M5 -- Proposition 4.10 (completeness). If [K(d)(mu,nu) <= eps] for
+    [mu := term_distribution s], [nu := term_distribution t], then
+    [QEqJ eps s t] is derivable, in the order-complete mode. Assembly only,
+    exactly as sketched in the roadmap: for every [delta > eps], upstream's
+    [kantorovich_almost_optimal] gives a coupling [gamma] with
+    [coupling_cost d gamma < delta]; M4 ([ica_coupling_term_QEqJ]) gives a
+    finite [QEqJ (coupling_cost d gamma)] proof between the two substituted
+    instances of [ica_coupling_term gamma], [FD_Up] weakens the bound to
+    [delta], and M3 ([ica_coupling_term_fst]/[_snd], re-ambiented to
+    [finite_fuzzy_space Hd] by [ica_finite_eqj_reambient]) rewrites the two
+    instances back to [s]/[t] via [FD_QEqReplaceL]/[FD_QEqReplaceR]. Finally
+    [FD_OrderComplete] assembles the resulting family, indexed by every
+    [delta > eps], into the single bound at [eps]. *)
+Theorem ica_completeness {R : realType} {X : finType}
+    (d : X -> X -> R) (Hd : forall x y, (0 <= d x y <= 1)%R)
+    (s t : term (@ica_signature R) X) (eps : R) :
+  (kantorovich_lifting d (term_distribution s) (term_distribution t) <= eps)%R ->
+  @frel_derives R ica_signature (@ica_theory R) FRelFull
+    (finite_fuzzy_space Hd) (QEqJ eps s t).
+Proof.
+  move => Hle.
+  apply: FD_OrderComplete => delta Hdelta.
+  apply: derives_fin_to_full.
+  have Hd0 : forall x y, (0 <= d x y)%R.
+    move => x y; case/andP: (Hd x y) => H0 _; exact: H0.
+  have Heta : (0 < delta -
+      kantorovich_lifting d (term_distribution s) (term_distribution t))%R.
+    rewrite subr_gt0.
+    exact: le_lt_trans Hle Hdelta.
+  have [gamma Hgamma] := kantorovich_almost_optimal
+    (term_distribution s) (term_distribution t) Hd0 Heta.
+  have Heq : (kantorovich_lifting d (term_distribution s)
+      (term_distribution t) +
+      (delta - kantorovich_lifting d (term_distribution s)
+        (term_distribution t)))%R = delta.
+    by rewrite addrC subrK.
+  rewrite Heq in Hgamma.
+  have Hcost_le : (coupling_cost d gamma <= delta)%R := ltW Hgamma.
+  have HQ := ica_coupling_term_QEqJ Hd gamma.
+  have HQ' := FD_Up Hcost_le HQ.
+  have Hfst := ica_finite_eqj_reambient Hd (ica_coupling_term_fst FRelFinite gamma).
+  have Hsnd := ica_finite_eqj_reambient Hd (ica_coupling_term_snd FRelFinite gamma).
+  exact: (FD_QEqReplaceR (FD_QEqReplaceL (FD_EqSym Hfst) HQ') Hsnd).
+Qed.
+
+(** M6 -- Corollary 4.13 (finite provability). Given [KantorovichCompactness.v]'s
+    exact optimal coupling (Proposition 4.12, unlike [ica_completeness]'s
+    [kantorovich_almost_optimal]), this is assembly identical to
+    [ica_completeness] but without the family over [delta > eps] and the
+    infinitary [FD_OrderComplete] step it drove: [ica_coupling_term_QEqJ]
+    (M4) applied to the exact-optimal coupling directly gives a finite
+    [QEqJ (K(d)(mu,nu)) s t] proof, and [FD_Up] alone upgrades it to any
+    [eps >= K(d)(mu,nu)]. *)
+Theorem ica_finite_completeness {R : realType} {X : finType}
+    (d : X -> X -> R) (Hd : forall x y, (0 <= d x y <= 1)%R)
+    (s t : term (@ica_signature R) X) (eps : R) :
+  (kantorovich_lifting d (term_distribution s) (term_distribution t) <= eps)%R ->
+  @frel_derives R ica_signature (@ica_theory R) FRelFinite
+    (finite_fuzzy_space Hd) (QEqJ eps s t).
+Proof.
+  move => Hle.
+  have Hd0 : forall x y, (0 <= d x y)%R.
+    move => x y; case/andP: (Hd x y) => H0 _; exact: H0.
+  have [gamma Hgamma] := kantorovich_optimal_coupling
+    (term_distribution s) (term_distribution t) Hd0.
+  have HQ := ica_coupling_term_QEqJ Hd gamma.
+  rewrite Hgamma in HQ.
+  have HQ' := FD_Up Hle HQ.
+  have Hfst := ica_finite_eqj_reambient Hd (ica_coupling_term_fst FRelFinite gamma).
+  have Hsnd := ica_finite_eqj_reambient Hd (ica_coupling_term_snd FRelFinite gamma).
+  exact: (FD_QEqReplaceR (FD_QEqReplaceL (FD_EqSym Hfst) HQ') Hsnd).
 Qed.
