@@ -874,11 +874,6 @@ Proof.
                          ---- exact: HD4.
 Qed.
 
-(** Corollary 4.8's [EqJ] case ([<-] direction): distributional equality is
-    preserved by every [EqJ] rule.  Rather than induct on [frel_derives]
-    directly, this packages the fact as ordinary soundness against the
-    (metric-independent) Kantorovich algebra at the trivial metric, reusing
-    [derives_fin_sound]/[derives_full_sound] and [kantorovich_models_ica]. *)
 Definition ica_dirac_interp {R : realType} {X : finType}
     (d : X -> X -> R) (Hd : forall x y, (0 <= d x y <= 1)%R) :
     interpretation (ica_finite_space X) (kantorovich_algebra Hd) :=
@@ -914,10 +909,6 @@ Proof.
     by rewrite -(E s) -(E t).
 Qed.
 
-(** Corollary 4.8's [EqJ] case ([->] direction): the new lemma.  Strong
-    induction on the size of [s]'s support, applying [extract_exists] to
-    both [s] and [t] at a common point and recursing on the remainders,
-    whose conditional distributions coincide by hypothesis. *)
 Lemma term_distribution_complete_bound {R : realType} {X : finType} :
   forall n (s t : term (@ica_signature R) X),
     (#|distribution_support (term_distribution s)| <= n)%N ->
@@ -984,7 +975,6 @@ Proof.
     (#|distribution_support (term_distribution s)|) s t (leqnn _).
 Qed.
 
-(** Corollary 4.8, [EqJ] case (M1). *)
 Theorem term_distribution_correctness {R : realType} {X : finType}
     (mode : frel_derivation_mode) (s t : term (@ica_signature R) X) :
   term_distribution s = term_distribution t <->
@@ -1025,12 +1015,6 @@ Definition fdist_support_witness {R : realType} {X : finType}
     (mu : fdist R X) : exists x : X, x \in distribution_support mu :=
   set0Pn (distribution_support mu) (fdist_support_neq0 mu).
 
-(** M2 — canonical term for an arbitrary [fdist]: fuel-bounded structural
-    recursion, peeling off a support point [x] via [condition] until the
-    remaining mass is entirely concentrated at a single point. The fuel
-    [n] is instantiated with (an upper bound on) the support's cardinality;
-    it strictly decreases across the recursive call since [condition]
-    removes [x] from the support ([condition_support]). *)
 Fixpoint term_of_fdist_bound {R : realType} {X : finType}
     (n : nat) (mu : fdist R X) : term (@ica_signature R) X :=
   let x := xchoose (fdist_support_witness mu) in
@@ -1077,9 +1061,6 @@ Proof.
       exact: condition_recover Hxlt1 Hxin0.
 Qed.
 
-(** M2 — the canonical term itself, and its two defining properties:
-    it denotes the given distribution, and every term is [EqJ]-provably
-    equal to the canonical term of its own denotation. *)
 Definition term_of_fdist {R : realType} {X : finType}
     (mu : fdist R X) : term (@ica_signature R) X :=
   term_of_fdist_bound #|distribution_support mu| mu.
@@ -1196,16 +1177,6 @@ Proof.
   apply: eq_bigl => x; by rewrite !eqxx.
 Qed.
 
-(** M3 -- the coupling-indexed shape [ica_coupling_term gamma], substituted
-    along the first (resp. second) projection, recovers [s] (resp. [t]).
-    [gamma]'s underlying joint distribution, packaged via
-    [fdist_of_coupling] as an [fdist] on [X * X], is normalized to a term
-    ([term_of_fdist], M2) over variables in its own support; substituting
-    the first (resp. second) projection back in denotes the first
-    (resp. second) marginal ([dist_map_fst_coupling]/
-    [dist_map_snd_coupling], via [coupling_fst]/[coupling_snd]), which is
-    [term_distribution s] (resp. [t]) by construction of [gamma]'s type --
-    so [term_distribution_correctness] (M1) concludes. *)
 Definition ica_coupling_term {R : realType} {X : finType}
     (s t : term (@ica_signature R) X)
     (gamma : coupling (term_distribution s) (term_distribution t)) :
@@ -1236,21 +1207,10 @@ Proof.
   exact: dist_map_snd_coupling.
 Qed.
 
-(** M4 -- Lemma 4.9's quantitative step, specialized to [ica_coupling_term].
-    Unlike M1-M3, this needs a genuinely new ingredient: the "expected
-    [d]-cost" of an arbitrary joint distribution on [X * X] (not just of a
-    bona fide [coupling]), together with the fact that conditioning on one
-    support point decomposes this cost the same way [condition_recover]
-    decomposes the distribution itself. Neither [extract_exists] nor
-    [term_of_fdist_bound]'s own correctness proof ever touched a metric, so
-    this has no counterpart there. *)
 Definition joint_cost {R : realType} {X : finType}
     (d : X -> X -> R) (mu : fdist R (X * X)%type) : R :=
   \sum_(p : X * X) mu p * d p.1 p.2.
 
-(** [joint_cost] agrees with upstream's [coupling_cost] once [mu] actually
-    comes from a [coupling], via the same [pair_bigA] reindexing
-    [fdist_of_coupling]'s own [fdist_1] obligation used. *)
 Lemma joint_cost_coupling {R : realType} {X : finType}
     (d : X -> X -> R) {mu nu : fdist R X} (gamma : coupling mu nu) :
   joint_cost d (fdist_of_coupling gamma) = coupling_cost d gamma.
@@ -1276,11 +1236,6 @@ Proof.
       by rewrite fdist_1.
 Qed.
 
-(** The "law of total expectation" step: peeling the mass at [x] off [mu]
-    splits its [d]-cost into [x]'s own contribution plus the (rescaled)
-    cost of the conditional distribution -- the quantitative analogue of
-    [condition_recover]. This is what lets [ICA_Interp] absorb the
-    recursive step in [term_of_fdist_bound_QEqJ] below. *)
 Lemma joint_cost_condition {R : realType} {X : finType}
     (d : X -> X -> R) (mu : fdist R (X * X)%type) (x : X * X) :
   (mu x < 1)%R -> x \in distribution_support mu ->
@@ -1308,13 +1263,6 @@ Proof.
   reflexivity.
 Qed.
 
-(** M4's algebraic engine: a reusable instance of the [ICA_Interp] axiom
-    along an arbitrary substitution, playing the same role for [QEqJ] that
-    [ica_merge_instance]/[general_merge] play for [EqJ] -- built the same
-    way, via [FD_Subst] into the 4-point interpolation space, with the 13
-    "unrelated pairs" (everything except the two designated [eps]/[delta]
-    slots) discharged by [FD_Max] regardless of what the substitution sends
-    them to. *)
 Lemma ica_interp_instance {R : realType} (mode : frel_derivation_mode)
     (X : fuzzy_space R) (p : ica_weight R) (eps delta : R)
     (Heps : (0 <= eps <= 1)%R) (Hdelta : (0 <= delta <= 1)%R)
@@ -1357,12 +1305,6 @@ Proof.
     try exact: FD_Max.
 Qed.
 
-(** M4 itself: for every fixed fuel-bounded [mu] on [X * X], substituting
-    the two projections into [term_of_fdist_bound n mu] is provably
-    [QEqJ]-close by [mu]'s own [d]-cost -- with a finite proof, mirroring
-    [term_of_fdist_bound_correct]'s recursion on the same peeled-point
-    structure, but discharging the successor case via [ica_interp_instance]
-    instead of [condition_recover]. *)
 Lemma term_of_fdist_bound_QEqJ {R : realType} {X : finType}
     (d : X -> X -> R) (Hd : forall x y, (0 <= d x y <= 1)%R) :
   forall n (mu : fdist R (X * X)%type),
@@ -1419,11 +1361,6 @@ Proof.
         IHw).
 Qed.
 
-(** M4, specialized to an actual coupling: [coupling_cost d gamma] is
-    [QEqJ]-provable (finitely!) between the two substituted instances of
-    [ica_coupling_term gamma], for every fixed [gamma]. This is exactly the
-    ingredient M5 (Proposition 4.10) needs to feed into
-    [FD_OrderComplete]. *)
 Theorem ica_coupling_term_QEqJ {R : realType} {X : finType}
     (d : X -> X -> R) (Hd : forall x y, (0 <= d x y <= 1)%R)
     (s t : term (@ica_signature R) X)
@@ -1439,15 +1376,6 @@ Proof.
   exact: (term_of_fdist_bound_QEqJ Hd (leqnn #|distribution_support (fdist_of_coupling gamma)|)).
 Qed.
 
-(** M5's one piece of bridging plumbing: an [EqJ] fact derivable at the
-    trivial-metric space [ica_finite_space X] (M1-M3's ambient throughout,
-    since equational derivability never depends on the metric) transports
-    unchanged to any [d]-metric space [finite_fuzzy_space Hd] over the same
-    carrier. No induction on the derivation is needed: [ica_finite_space X]'s
-    relation is the constant [1], so substituting the identity ([Var]) via
-    [FD_Subst] discharges its side conditions with bare [FD_Max] regardless
-    of [d], and [subst_term_var] collapses the identity substitution back to
-    the original terms. *)
 Lemma ica_finite_eqj_reambient {R : realType} {X : finType}
     (d : X -> X -> R) (Hd : forall x y, (0 <= d x y <= 1)%R)
     (mode : frel_derivation_mode) (s t : term (@ica_signature R) X) :
@@ -1467,19 +1395,6 @@ Proof.
   by rewrite /subst_judgement !subst_term_var in H'.
 Qed.
 
-(** M5 -- Proposition 4.10 (completeness). If [K(d)(mu,nu) <= eps] for
-    [mu := term_distribution s], [nu := term_distribution t], then
-    [QEqJ eps s t] is derivable, in the order-complete mode. Assembly only,
-    exactly as sketched in the roadmap: for every [delta > eps], upstream's
-    [kantorovich_almost_optimal] gives a coupling [gamma] with
-    [coupling_cost d gamma < delta]; M4 ([ica_coupling_term_QEqJ]) gives a
-    finite [QEqJ (coupling_cost d gamma)] proof between the two substituted
-    instances of [ica_coupling_term gamma], [FD_Up] weakens the bound to
-    [delta], and M3 ([ica_coupling_term_fst]/[_snd], re-ambiented to
-    [finite_fuzzy_space Hd] by [ica_finite_eqj_reambient]) rewrites the two
-    instances back to [s]/[t] via [FD_QEqReplaceL]/[FD_QEqReplaceR]. Finally
-    [FD_OrderComplete] assembles the resulting family, indexed by every
-    [delta > eps], into the single bound at [eps]. *)
 Theorem ica_completeness {R : realType} {X : finType}
     (d : X -> X -> R) (Hd : forall x y, (0 <= d x y <= 1)%R)
     (s t : term (@ica_signature R) X) (eps : R) :
@@ -1512,14 +1427,10 @@ Proof.
   exact: (FD_QEqReplaceR (FD_QEqReplaceL (FD_EqSym Hfst) HQ') Hsnd).
 Qed.
 
-(** M6 -- Corollary 4.13 (finite provability). Given [KantorovichCompactness.v]'s
-    exact optimal coupling (Proposition 4.12, unlike [ica_completeness]'s
-    [kantorovich_almost_optimal]), this is assembly identical to
-    [ica_completeness] but without the family over [delta > eps] and the
-    infinitary [FD_OrderComplete] step it drove: [ica_coupling_term_QEqJ]
-    (M4) applied to the exact-optimal coupling directly gives a finite
-    [QEqJ (K(d)(mu,nu)) s t] proof, and [FD_Up] alone upgrades it to any
-    [eps >= K(d)(mu,nu)]. *)
+Set Silent.
+Print Assumptions ica_completeness.
+Unset Silent.
+
 Theorem ica_finite_completeness {R : realType} {X : finType}
     (d : X -> X -> R) (Hd : forall x y, (0 <= d x y <= 1)%R)
     (s t : term (@ica_signature R) X) (eps : R) :
