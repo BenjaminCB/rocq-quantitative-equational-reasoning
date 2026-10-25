@@ -20,3 +20,5 @@ models/
 
 # papers
 docs/paper/*
+
+.vibe-wise/
