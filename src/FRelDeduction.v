@@ -157,6 +157,31 @@ Proof.
   all: eauto using frel_derives.
 Qed.
 
+(** Context-monotonicity along an isometric embedding: a derivation over a
+    context [X] transports to any context [Y] into which [X] embeds
+    isometrically, by [FD_Subst]ing along [Var \o incl] and discharging the
+    side conditions with [FD_UseVariables] plus the isometry hypothesis. In
+    the intended use, [Hiso] holds definitionally whenever [X]'s relation is
+    built as the pullback of [Y]'s along [incl], leaving nothing to prove at
+    the call site. *)
+Lemma frel_derives_embed
+    {R : realType} {sig : signature}
+    (E : fuzzy_theory R sig)
+    (mode : frel_derivation_mode)
+    (X Y : fuzzy_space R)
+    (incl : fcarrier X -> fcarrier Y)
+    (Hiso : forall x x', frel Y (incl x) (incl x') = frel X x x')
+    (phi : @judgement R sig (fcarrier X)) :
+  frel_derives E mode phi ->
+  frel_derives E mode (subst_judgement (Var \o incl) phi).
+Proof.
+  move => H.
+  apply: (FD_Subst (sigma := Var \o incl) H).
+  move => x y /=.
+  rewrite -(Hiso x y).
+  exact: FD_UseVariables.
+Qed.
+
 Lemma satisfies_subst
     {R : realType} {sig : signature}
     (A : FuzzyAlgebra R sig)

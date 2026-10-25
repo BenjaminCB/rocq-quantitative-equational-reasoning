@@ -1,6 +1,7 @@
 From Stdlib Require Import Logic.FunctionalExtensionality.
 From mathcomp Require Import all_boot all_order all_algebra.
 From mathcomp Require Import all_classical reals.
+From mathcomp Require Import finmap.
 From mathcomp.algebra_tactics Require Import ring lra.
 
 From Template Require Import Signature FuzzyRelation FRelDeduction.
@@ -149,16 +150,32 @@ Proof.
   case: (Nat.eqb i 0); [apply: H1 | apply H2].
 Qed.
 
-Fixpoint term_vars {R : realType} {X : finType}
-    (s : term (@ica_signature R) X) : {set X} :=
+(** Typed at an arbitrary [choiceType] rather than [X : finType]: a term
+    only ever mentions finitely many variables regardless of how big the
+    ambient carrier is, so nothing about this definition needs [X] finite —
+    only where it is used elsewhere in this file did. *)
+Fixpoint term_vars {R : realType} {X : choiceType}
+    (s : term (@ica_signature R) X) : {fset X} :=
   match s with
-  | Var x => [set x]
+  | Var x => [fset x]%fset
   | App f args =>
       match f with
       | ica_plus p =>
-          term_vars (args (inord 0)) :|: term_vars (args (inord 1))
+          (term_vars (args (inord 0)) `|` term_vars (args (inord 1)))%fset
       end
   end.
+
+Lemma term_vars_neq0 {R : realType} {X : choiceType}
+    (s : term (@ica_signature R) X) :
+  term_vars s != fset0.
+Proof.
+  elim: s => [x | f args IH].
+  - apply/fset0Pn; exists x; by rewrite in_fset1.
+  - case: f args IH => p args IH /=.
+    have [x0 Hx0] := fset0Pn _ (IH (inord 0)).
+    apply/fset0Pn; exists x0.
+    by rewrite in_fsetU Hx0.
+Qed.
 
 Lemma weighted_sum_gt0 {R : realType} (p : ica_weight R) (a b : R) :
   (0 <= a)%R -> (0 <= b)%R ->
@@ -172,18 +189,18 @@ Proof.
 Qed.
 
 Lemma term_distribution_support {R : realType} {X : finType}
-    (s : term (@ica_signature R) X) :
-  distribution_support (term_distribution s) = term_vars s.
+    (s : term (@ica_signature R) X) (x : X) :
+  (x \in distribution_support (term_distribution s)) = (x \in term_vars s).
 Proof.
-  elim: s => [ x | f args i ].
-  - rewrite /distribution_support /dirac_fdist //=.
-    apply/setP => x'; rewrite !inE.
-    by case: (x' == x); rewrite ?oner_neq0 ?eq_refl.
+  elim: s x => [ x0 | f args i ] x.
+  - rewrite /distribution_support /dirac_fdist !inE.
+    rewrite /= /dirac_fdist /=.
+    by case: (x == x0); rewrite ?oner_neq0 ?eq_refl.
   - case: f args i => p args i /=.
-    apply/setP => y; rewrite !inE.
-    rewrite convex_mixtureE -(i (inord 0)) -(i (inord 1)) !inE.
-    have Ha := fdist_ge0 (term_distribution (args (inord 0))) y.
-    have Hb := fdist_ge0 (term_distribution (args (inord 1))) y.
+    rewrite /distribution_support !inE.
+    rewrite convex_mixtureE -(i (inord 0) x) -(i (inord 1) x) /distribution_support !inE.
+    have Ha := fdist_ge0 (term_distribution (args (inord 0))) x.
+    have Hb := fdist_ge0 (term_distribution (args (inord 1))) x.
     have Hw := weighted_sum_ge0 (ica_probability_weight p) Ha Hb.
     have gt0E : forall z : R, 0 <= z -> (z != 0) = (0 < z).
       by move=> z Hz; rewrite lt0r Hz andbT.
@@ -195,13 +212,9 @@ Lemma term_distribution_support_neq0 {R : realType} {X : finType}
     (s : term (@ica_signature R) X) :
   distribution_support (term_distribution s) != finset.set0.
 Proof.
-  rewrite term_distribution_support.
-  elim: s => [x | f args i].
-  - rewrite /term_vars /=.
-    apply/set0Pn.
-    exists x; apply: set11.
-  - case: f args i => p args i /=.
-    apply: subset_neq0 (finset.subsetUl _ _) (i (inord 0)).
+  have [x0 Hx0] := fset0Pn _ (term_vars_neq0 s).
+  apply/set0Pn; exists x0.
+  by rewrite term_distribution_support.
 Qed.
 
 Definition ica_weight_half (R : realType) : ica_weight R.
@@ -1449,4 +1462,192 @@ Proof.
   have Hfst := ica_finite_eqj_reambient Hd (ica_coupling_term_fst FRelFinite gamma).
   have Hsnd := ica_finite_eqj_reambient Hd (ica_coupling_term_snd FRelFinite gamma).
   exact: (FD_QEqReplaceR (FD_QEqReplaceL (FD_EqSym Hfst) HQ') Hsnd).
+Qed.
+
+(* ============================================================
+   M1: lifting the finType completeness results to an arbitrary
+   choiceType carrier (docs/formalization-status.md, section 2.1).
+
+   [term_vars] no longer needs [X] finite (it never did -- structural
+   recursion on a term only ever touches finitely many variables), so a
+   pair of terms [s t : term ica_signature A] over an *arbitrary*
+   [A : choiceType] determines a canonical finite [{fset A}] -- their
+   combined variable set -- which coerces to a [finType] for free
+   (finmap's own subtype coercion, the same idiom [fsum] already uses in
+   [ProbabilityDistribution.v]). [gen_sigma] reindexes into that finType,
+   [s_B]/[t_B] are the reindexed terms, and [s_B_transport]/[t_B_transport]
+   confirm reindexing and translating back via [fsval] is the identity --
+   the "no information lost" fact underlying the whole construction.
+
+   This gives Prop 4.10 and Cor 4.13 (both directions with the
+   *hypothesis* about a Kantorovich bound, concluding a derivation) for
+   arbitrary carriers, exactly as sketched in the worked walkthrough:
+   solve the finType instance over the combined variable set, then
+   [frel_derives_embed] (FRelDeduction.v) lifts the resulting derivation
+   from that finite sub-context back up to the full carrier [A], with
+   [s_B_transport]/[t_B_transport] confirming the lifted judgement is
+   literally [QEqJ eps s t], not merely something equivalent to it.
+
+   Cor 4.7 (soundness: derivability at the full carrier implies a
+   Kantorovich bound) does *not* generalize by the same transport. That
+   direction needs a *model* with carrier literally [A] -- concretely,
+   [D(A)], the type of finitely-supported distributions over [A], with
+   [K(d_A)] a genuine binary operation on it -- because [derives_full_sound]
+   needs an [interpretation] that is nonexpansive at *every* pair in [A],
+   and no fixed reindexing of [A] into a finite witness set [B] can be
+   nonexpansive there: collapsing two points of [A \ B] to a common image
+   forces the model to assign them Kantorovich-distance [0] regardless of
+   their actual [d]-distance, which is unsound the moment [d] takes a
+   positive value on some pair outside [B]. Building [D(A)] generically
+   (finitely-supported distributions over a bare [choiceType], with
+   [K(d_A)] well-defined independently of the ambient finite witness set
+   via the same support-containment argument used below) is real
+   additional work, not a thin corollary of what is already proved here;
+   it is left open.
+   ============================================================ *)
+
+(** A congruence principle for [subst_term]: substitutions that agree on
+    every variable a term actually mentions produce the same result,
+    regardless of how they behave elsewhere. This is what lets a
+    substitution defined only "on paper" for the finitely many variables
+    of [s] be extended arbitrarily off that set without affecting
+    [subst_term _ s]. *)
+Lemma subst_term_eq_on {R : realType} {A Y : choiceType}
+    (sigma1 sigma2 : A -> term (@ica_signature R) Y) (s : term (@ica_signature R) A) :
+  (forall x, x \in term_vars s -> sigma1 x = sigma2 x) ->
+  subst_term sigma1 s = subst_term sigma2 s.
+Proof.
+  elim: s => [x0 | f args IH] Heq /=.
+  - apply: Heq; by rewrite in_fset1.
+  - move: Heq; case: f args IH => p args IH Heq /=.
+    congr App; apply: functional_extensionality => i.
+    apply: IH => x Hx.
+    apply: Heq => /=.
+    rewrite in_fsetU.
+    move: Hx; case: i => [[|[|m]] Hm] //= Hx.
+    + have E0 : Ordinal Hm = inord 0 by apply: ord_inj; rewrite inordK.
+      by rewrite E0 in Hx; rewrite Hx.
+    + have E1 : Ordinal Hm = inord 1 by apply: ord_inj; rewrite inordK.
+      by rewrite E1 in Hx; rewrite Hx orbT.
+Qed.
+
+(** Every term mentions at least one variable ([term_vars_neq0]), so it
+    supplies its own canonical witness -- used as the fallback point for
+    reindexing variables that happen to fall outside the combined
+    variable set (which never actually happens for the terms [s]/[t]
+    the reindexing is built from, but [insubd] needs a fallback to be a
+    total function). *)
+Definition ica_fset_witness {R : realType} {A : choiceType}
+    (s : term (@ica_signature R) A) : A :=
+  xchoose (fset0Pn _ (term_vars_neq0 s)).
+
+Lemma ica_fset_witnessP {R : realType} {A : choiceType}
+    (s : term (@ica_signature R) A) :
+  ica_fset_witness s \in term_vars s.
+Proof. exact: xchooseP (fset0Pn _ (term_vars_neq0 s)). Qed.
+
+Section GenCarrier.
+Context {R : realType} {A : choiceType}.
+Variables s t : term (@ica_signature R) A.
+
+(** The finite variable set [s] and [t] actually range over -- the
+    canonical finite sub-carrier the whole construction pivots on. *)
+Definition gen_vars : {fset A} := (term_vars s `|` term_vars t)%fset.
+
+Lemma gen_vars_default_in : ica_fset_witness s \in gen_vars.
+Proof. by rewrite /gen_vars in_fsetU ica_fset_witnessP. Qed.
+
+Definition gen_default : gen_vars := FSetSub gen_vars_default_in.
+
+(** Reindex an arbitrary variable of [A] into [gen_vars] (coerced to a
+    [finType]), falling back to [gen_default] off that set -- a total
+    function, even though only its behaviour on [gen_vars] matters. *)
+Definition gen_reindex : A -> gen_vars := insubd gen_default.
+
+Definition gen_sigma : A -> term (@ica_signature R) gen_vars :=
+  Var \o gen_reindex.
+
+Definition s_B : term (@ica_signature R) gen_vars := subst_term gen_sigma s.
+Definition t_B : term (@ica_signature R) gen_vars := subst_term gen_sigma t.
+
+(** Reindexing into [gen_vars] and translating back out via [fsval] is
+    the identity, for any term all of whose variables already lie in
+    [gen_vars] -- the "no information lost" fact the whole transport
+    relies on. *)
+Lemma gen_transport (u : term (@ica_signature R) A) :
+  {subset term_vars u <= gen_vars} ->
+  subst_term (Var \o (@fsval A gen_vars)) (subst_term gen_sigma u) = u.
+Proof.
+  move => Hsub.
+  rewrite subst_term_comp.
+  rewrite -[RHS](subst_term_var u).
+  apply: subst_term_eq_on => x Hx.
+  rewrite /subst_comp /gen_sigma /=.
+  congr Var.
+  exact: insubdK (Hsub x Hx).
+Qed.
+
+Lemma s_B_transport : subst_term (Var \o (@fsval A gen_vars)) s_B = s.
+Proof.
+  apply: gen_transport.
+  apply/fsubsetP.
+  exact: fsubsetUl.
+Qed.
+
+Lemma t_B_transport : subst_term (Var \o (@fsval A gen_vars)) t_B = t.
+Proof.
+  apply: gen_transport.
+  apply/fsubsetP.
+  exact: fsubsetUr.
+Qed.
+
+End GenCarrier.
+
+(** Corollary 4.13, generalized to an arbitrary [choiceType] carrier
+    [A]: finitary completeness, with the Kantorovich hypothesis stated
+    over the canonical finite witness set [gen_vars s t] (the only place
+    a Kantorovich lifting can literally be computed, since [fdist]
+    itself requires a [finType]). *)
+Theorem ica_finite_completeness_gen {R : realType} {A : choiceType}
+    (d : A -> A -> R) (Hd : forall x y, (0 <= d x y <= 1)%R)
+    (s t : term (@ica_signature R) A) (eps : R) :
+  (kantorovich_lifting (fun x y : gen_vars s t => d (fsval x) (fsval y))
+     (term_distribution (s_B s t)) (term_distribution (t_B s t)) <= eps)%R ->
+  @frel_derives R ica_signature (@ica_theory R) FRelFinite
+    {| fcarrier := A; frel := d; frel_range := Hd |} (QEqJ eps s t).
+Proof.
+  move => Hle.
+  pose dB : gen_vars s t -> gen_vars s t -> R := fun x y => d (fsval x) (fsval y).
+  pose HdB : forall x y : gen_vars s t, (0 <= dB x y <= 1)%R :=
+    fun x y => Hd (fsval x) (fsval y).
+  have Hfin := @ica_finite_completeness R (gen_vars s t) dB HdB (s_B s t) (t_B s t) eps Hle.
+  have Hemb := frel_derives_embed (E := @ica_theory R) (mode := FRelFinite)
+    (X := finite_fuzzy_space HdB)
+    (Y := {| fcarrier := A; frel := d; frel_range := Hd |})
+    (incl := @fsval A (gen_vars s t)) (fun x y => erefl) Hfin.
+  rewrite /subst_judgement /= (s_B_transport s t) (t_B_transport s t) in Hemb.
+  exact: Hemb.
+Qed.
+
+(** Proposition 4.10, generalized the same way: possibly-infinitary
+    completeness over an arbitrary [choiceType] carrier. *)
+Theorem ica_completeness_gen {R : realType} {A : choiceType}
+    (d : A -> A -> R) (Hd : forall x y, (0 <= d x y <= 1)%R)
+    (s t : term (@ica_signature R) A) (eps : R) :
+  (kantorovich_lifting (fun x y : gen_vars s t => d (fsval x) (fsval y))
+     (term_distribution (s_B s t)) (term_distribution (t_B s t)) <= eps)%R ->
+  @frel_derives R ica_signature (@ica_theory R) FRelFull
+    {| fcarrier := A; frel := d; frel_range := Hd |} (QEqJ eps s t).
+Proof.
+  move => Hle.
+  pose dB : gen_vars s t -> gen_vars s t -> R := fun x y => d (fsval x) (fsval y).
+  pose HdB : forall x y : gen_vars s t, (0 <= dB x y <= 1)%R :=
+    fun x y => Hd (fsval x) (fsval y).
+  have Hfull := @ica_completeness R (gen_vars s t) dB HdB (s_B s t) (t_B s t) eps Hle.
+  have Hemb := frel_derives_embed (E := @ica_theory R) (mode := FRelFull)
+    (X := finite_fuzzy_space HdB)
+    (Y := {| fcarrier := A; frel := d; frel_range := Hd |})
+    (incl := @fsval A (gen_vars s t)) (fun x y => erefl) Hfull.
+  rewrite /subst_judgement /= (s_B_transport s t) (t_B_transport s t) in Hemb.
+  exact: Hemb.
 Qed.

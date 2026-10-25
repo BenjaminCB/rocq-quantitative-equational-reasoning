@@ -1,10 +1,12 @@
 -Q src Template
 src/Signature.v
 src/ProbabilityDistribution.v
+src/GeneralDistribution.v
 src/FuzzyRelation.v
 src/FRelDeduction.v
 src/ICA.v
 src/KantorovichProperties.v
 src/KantorovichCompactness.v
 src/ICAKantorovichSoundness.v
+src/ICAGeneralSoundness.v
 src/BarycentricNormalization.v
