@@ -1,0 +1,1381 @@
+% ============================================================
+%  Formalizing Quantitative Equational Reasoning
+%  Program Verification Exam -- 07/09/2026
+%
+%  30-minute version.  Each definition is followed immediately by
+%  its Rocq encoding.  The long deck (with the
+%  [frel_derives_weakening] walkthrough, the metric-view system,
+%  and the enriched-Lawvere framing) is in presentation-long.tex.
+%
+%  Compile with:  latexmk -pdf presentation.tex
+% ============================================================
+\documentclass[10pt,aspectratio=169]{beamer}
+
+\usetheme[progressbar=frametitle,block=fill]{metropolis}
+
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{bm}
+\usepackage{stmaryrd}          % \llbracket \rrbracket
+\usepackage{mathtools}
+\usepackage{mathpartir}        % inference rules
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage[most]{tcolorbox}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,positioning,decorations.pathmorphing}
+\usepackage{booktabs}
+\usepackage{nicematrix}           % row/column-labelled context matrices
+\usepackage{appendixnumberbeamer}  % \inserttotalframenumber excludes
+% the appendix
+
+\input{rocqstyle}
+
+\newcommand{\ptag}[1]{\hfill\textit{#1}}
+
+% ------------------------------------------------------------
+%  The proof script of [kantorovich_models_ica] (Proposition 4.6).
+%    step 1 -- setup, case split into the four axioms
+%    step 2 -- the three equational axioms
+%  Then the interpolative axiom, one tactic per step:
+%    step 3 -- evaluate the two [+_p] terms
+%    step 4 -- convexity of the Kantorovich lifting
+%    step 5 -- monotonicity of the weighted sum
+%    step 6 -- non-expansiveness of the interpretation
+%    step 7 -- read the (0,2) entry off the context matrix
+%    step 8 -- the (1,3) component, symmetric
+% ------------------------------------------------------------
+\newcommand{\modelscript}{%
+    \pline{0}{Theorem kantorovich\_models\_ica :}
+    \pline{0}{\ \ fuzzy\_models kantorovich\_algebra (@ica\_theory R).}
+    \pline{1}{Proof.}
+    \pline{1}{\ \ rewrite /fuzzy\_models.}
+    \pline{1}{\ \ move => Y phi Hphi.}
+    \pline{1}{\ \ case: Hphi => [p | p | p q | p eps delta ...] rho.}
+    \pline{2}{\ \ - by rewrite kantorovich\_eval\_op}
+    \pline{2}{\ \ \ \ \ \ convex\_mixture\_idem.\ptag{Idem}}
+    \pline{2}{\ \ - by rewrite !kantorovich\_eval\_op}
+    \pline{2}{\ \ \ \ \ \ convex\_mixture\_skew\_comm.\ptag{SkewComm}}
+    \pline{2}{\ \ - by rewrite !kantorovich\_eval\_op}
+    \pline{2}{\ \ \ \ \ \ convex\_mixture\_skew\_assoc.\ptag{SkewAssoc}}
+    \pline{3}{\ \ - rewrite !kantorovich\_eval\_op.\ptag{Interp}}
+    \pline{4}{\ \ \ \ apply: (le\_trans}
+    \pline{4}{\ \ \ \ \ \ (kantorovich\_convex\_mixture \_ \_ \_ \_ \_ Hd)).}
+    \pline{5}{\ \ \ \ apply: weighted\_sum\_le.}
+    \pline{6}{\ \ \ \ - apply: (le\_trans (interpretation\_nexp}
+    \pline{6}{\ \ \ \ \ \ \ \ rho (inord 0) (inord 2))).}
+    \pline{7}{\ \ \ \ \ \ by rewrite /= /ica\_interp\_rel !inordK.}
+    \pline{8}{\ \ \ \ - apply: (le\_trans (interpretation\_nexp}
+    \pline{8}{\ \ \ \ \ \ \ \ rho (inord 1) (inord 3))).}
+    \pline{8}{\ \ \ \ \ \ by rewrite /= /ica\_interp\_rel !inordK.}
+    \pline{8}{Qed.}
+}
+
+% ------------------------------------------------------------
+%  The proof script of [derives_fin_sound].
+%    step 1 -- unfold, introduce the interpretation
+%    step 2 -- the [remember] trick on the derivation mode
+%    step 3 -- induction: twelve goals, one per rule
+%    step 4 -- the Birkhoff cases
+%    step 5 -- [FD_UseVariables], walked through on its own slide
+%    step 6 -- the remaining cases
+% ------------------------------------------------------------
+\newcommand{\soundnessscript}{%
+    \pline{0}{Theorem derives\_fin\_sound (A : FuzzyAlgebra R sig)}
+    \pline{0}{\ \ \ \ (E : fuzzy\_theory R sig) (X : fuzzy\_space R)}
+    \pline{0}{\ \ \ \ (phi : @judgement R sig (fcarrier X)) :}
+    \pline{0}{\ \ fuzzy\_models A E -> derives\_fin E phi ->}
+    \pline{0}{\ \ satisfies A X phi.}
+    \pline{0}{Proof.}
+    \pline{1}{\ \ rewrite /fuzzy\_models /satisfies /derives\_fin.}
+    \pline{1}{\ \ move => Hmodel Hderive rho.}
+    \pline{2}{\ \ remember FRelFinite as mode eqn:Hmode in Hderive.}
+    \pline{2}{\ \ revert Hmode.}
+    \pline{3}{\ \ induction Hderive; intros Hmode.}
+    \pline{4}{\ \ - apply: Hmodel X phi H rho.\ptag{Init}}
+    \pline{4}{\ \ - by [].\ptag{EqRefl}}
+    \pline{4}{\ \ - symmetry. exact: IHHderive ...\ptag{EqSym}}
+    \pline{4}{\ \ - by rewrite (IHHderive1 ...) ...\ptag{EqTrans}}
+    \pline{4}{\ \ - congr fa\_ops; apply ...\ptag{EqCong}}
+    \pline{5}{\ \ - move => //=.\ptag{UseVars}}
+    \pline{5}{\ \ \ \ apply: (interpretation\_nexp rho).}
+    \pline{6}{\ \ - apply: satisfies\_subst. ...\ptag{Subst}}
+    \pline{6}{\ \ - rewrite (IHHderive1 ...). ...\ptag{QEqRepL}}
+    \pline{6}{\ \ - rewrite -(IHHderive2 ...). ...\ptag{QEqRepR}}
+    \pline{6}{\ \ - apply: le\_trans ... H.\ptag{Up}}
+    \pline{6}{\ \ - apply: (andP (frel\_range ...)).2\ptag{Max}}
+    \pline{6}{\ \ - discriminate Hmode.\ptag{OrderCompl}}
+    \pline{6}{Qed.}
+}
+
+% ------------------------------------------------------------
+%  Notation
+% ------------------------------------------------------------
+\NiceMatrixOptions{code-for-first-row=\scriptstyle,code-for-first-col=\scriptstyle}
+% \ctx{<col spec>}{<body: first row = column labels, first col = row labels>}
+\newcommand{\ctx}[2]{%
+    \left(\;
+        \begin{bNiceArray}{#1}[first-row,first-col,small]#2
+\end{bNiceArray}\right)}
+\newcommand{\qeq}[1]{=_{#1}}
+\newcommand{\den}[1]{\llbracket #1 \rrbracket}
+\newcommand{\ICA}{\mathbb{I}\mathbb{C}\mathbb{A}}
+\newcommand{\Dist}{\mathcal{D}}
+\newcommand{\Terms}{\mathbb{T}}
+\newcommand{\eps}{\varepsilon}
+\newcommand{\Kan}{\mathcal{K}}
+\newcommand{\Cpl}{\Gamma}
+\newcommand{\bpl}[1]{+_{#1}}
+\newcommand{\file}[1]{{\color{rocqcon}\texttt{#1}}}
+\newcommand{\rid}[1]{{\ttfamily\small #1}}
+
+% metropolis: make frametitles and the title page a bit tighter
+\metroset{sectionpage=none,numbering=fraction}
+\makeatletter
+\setlength{\metropolis@frametitle@padding}{1.1ex}
+\makeatother
+\setbeamerfont{title}{size=\Large,series=\bfseries}
+\setbeamerfont{author}{size=\normalsize}
+\setbeamerfont{institute}{size=\small}
+\setbeamerfont{date}{size=\small}
+\setbeamerfont{frametitle}{size=\normalsize,series=\bfseries}
+\setbeamersize{text margin left=5mm,text margin right=5mm}
+
+\title{Formalizing Quantitative Equational Reasoning}
+\author{Benjamin Bennetzen}
+\institute{Aalborg University \quad\textbullet\quad \texttt{bcb@aau.dk}\\[0.3em]
+{\small Supervised by Giorgio Bacci and Robin Kaarsgaard}}
+\date{Program Verification Exam \quad\textbullet\quad 07/09/2026}
+
+\begin{document}
+
+\begin{frame}[plain]
+    \titlepage
+\end{frame}
+
+% ============================================================
+\section{Setting the scene}
+% ============================================================
+
+\begin{frame}{Motivation}
+    \begin{itemize}
+        \item[--] Equations are fundamental to mathematical reasoning.
+            \medskip
+        \item[--] Reasoning about programs is also based on program
+            equivalences.
+            \medskip
+        \item[--] But exact equivalence is often too strict. An
+            approximation, errors, probabilistic and quantum computing.
+            \medskip
+        \item[--] We want quantitative analogues of equational
+            reasoning.
+    \end{itemize}
+\end{frame}
+
+\begin{frame}{Replace standard equations with quantitative ones}
+    \begin{center}
+        \begin{tcolorbox}[colback=srcbg,colframe=goalrule,width=0.55\textwidth,
+            halign=center,boxrule=0.6pt,arc=8pt]
+            \Huge $s \qeq{\eps} t$
+        \end{tcolorbox}
+    \end{center}
+    \pause
+    \vfill
+    \begin{center}
+        \large ``$s$ is within $\eps$ distance of $t$''
+    \end{center}
+    % \vfill
+    % {\footnotesize To make this precise we need a syntax of terms, a
+    %     semantics in which distances live, and a proof system relating the
+    %     two. Today: that story for one running example, with the Rocq
+    % encoding shown next to each definition.}
+\end{frame}
+
+% ============================================================
+\section{The classical picture: barycentric algebras}
+% ============================================================
+
+\begin{frame}{An equational theory of barycentric algebras}
+    \begin{columns}[T]
+        \begin{column}{0.42\textwidth}
+            \textbf{Variables}\\[0.3em]
+            $s,t,u,\dots$
+        \end{column}
+        \begin{column}{0.55\textwidth}
+            \textbf{Operations}\\[0.3em]
+            $\Sigma_{CA} = \{\,\bpl{p} \mid 0 < p < 1\,\}$,\\
+        \end{column}
+    \end{columns}
+    \vfill
+    \textbf{Equations}
+    \begin{align*}
+        \text{(Idempotency)}\qquad & s \bpl{p} s = s\\[0.3em]
+        \text{(Skew commutativity)}\qquad & s \bpl{p} t = t \bpl{1-p} s\\[0.3em]
+        \text{(Skew associativity)}\qquad & (s \bpl{p} t) \bpl{q} u
+        = s \bpl{pq} \bigl(t \bpl{\frac{(1-p)q}{1-pq}} u\bigr)
+    \end{align*}
+    \vfill
+    {\footnotesize Also known as convex algebras or convex spaces.}
+\end{frame}
+
+\begin{frame}[fragile]{Formalization: signatures and terms}
+    \file{src/Signature.v}
+    \begin{srcbox}
+Record signature := {
+  sym : Type;
+  arity : sym -> nat;
+}.
+
+Inductive term (sig : signature) (X : Type) : Type :=
+  | Var : X -> term sig X
+  | App : forall f : sym sig, ('I_(arity f) -> term sig X) -> term sig X.
+
+Definition algebra_ops (sig : signature) (A : Type) : Type :=
+  forall f : sym sig, (ordinal (arity f) -> A) -> A.
+    \end{srcbox}
+    \begin{itemize}
+        \item \rid{sym} is an arbitrary \rid{Type}, so the signature may be
+            uncountable, as $\Sigma_{\mathrm{CA}}$ is.
+        \item Arguments are given as functions with argumnets of type ordinal
+            \rid{'I\_n}.
+    \end{itemize}
+\end{frame}
+
+\begin{frame}{A model of the theory}
+    A model interprets each $\bpl{p}$ while respecting the axioms.
+    \vfill
+    One model: the finitely supported probability distributions
+    $\Dist(X)$ with convex combinations
+    \[
+        (\mu \bpl{p} \nu)(x) \;=\; p\,\mu(x) + (1-p)\,\nu(x).
+    \]
+    \vfill
+    \pause
+    \textbf{Small example.} $X = \{a,b,c\}$, written as vectors
+    $(\mu(a),\mu(b),\mu(c))$. Skew associativity with $p = q = \tfrac12$
+    (so $pq = \tfrac14$ and $\tfrac{(1-p)q}{1-pq} = \tfrac13$):
+    \[
+        \underbrace{(\delta_a \bpl{\frac12} \delta_b) \bpl{\frac12} \delta_c}
+        _{(\frac14,\frac14,\frac12)}
+        \;=\;
+        \underbrace{\delta_a \bpl{\frac14}
+        (\delta_b \bpl{\frac13} \delta_c)}_{(\frac14,\frac14,\frac12)}
+    \]
+\end{frame}
+
+\begin{frame}[fragile]{Formalization: distributions and convex mixtures}
+    \begin{srcbox}
+Record probability_weight (R : realType) := {
+  weight : R;   weight_unit : (0 <= weight <= 1)%R;
+}.
+Record probability_distribution (R : realType) (X : finType) := {
+  probability_mass :> X -> R;
+  probability_mass_ge0 : forall x, (0 <= probability_mass x)%R;
+  probability_mass_total : \sum_(x : X) probability_mass x = 1;
+}.
+Definition weighted_sum (p : probability_weight R) (x y : R) : R :=
+  weight p * x + (1 - weight p) * y.
+
+Definition convex_mixture (p : probability_weight R)
+    (mu nu : probability_distribution R X) : probability_distribution R X.
+Proof.
+  refine {| probability_mass := fun x => weighted_sum p (mu x) (nu x) |}.
+  ...
+Defined.
+    \end{srcbox}
+    \begin{itemize}
+        \item \rid{X : finType} makes ``finitely supported'' automatic.
+        \item The three barycentric axioms become
+            \rid{convex\_mixture\_idem}, \rid{\_skew\_comm} and
+            \rid{\_skew\_assoc}: each is a scalar identity such as
+            $px + (1-p)x = x$, discharged by \rid{lra} or \rid{field} and
+            then lifted by \rid{probability\_distribution\_ext}.
+    \end{itemize}
+\end{frame}
+
+% ============================================================
+\section{Going quantitative}
+% ============================================================
+
+\begin{frame}{How to extend to the quantitative setting}
+    An algebraic theory has three equivalent presentations.
+    \vfill
+    \begin{description}
+        \item[\underline{Quantitative} equational theories]\hfill\\
+            operations $+$ \underline{quantitative} equations.
+            \medskip
+        \item[\underline{EMet}-Lawvere theories]\hfill\\
+            Lawvere categories \underline{enriched in the category of extended
+            metric spaces}.
+            \medskip
+        \item[Monads on $\mathbf{Set}$ (\underline{EMet})]\hfill\\
+            \underline{quantitative} effects.
+    \end{description}
+    \vfill
+    \hfill{\small Mardare, Panangaden and Plotkin (LICS'16, LICS'17);}\\
+    \hfill{\small Bacci, Mardare, Panangaden and Plotkin.}
+\end{frame}
+
+\begin{frame}{The metric view}
+    If $s \qeq{\eps} t$, then for an interpretation
+    $\den{\cdot} $ we ask
+    \[ d\bigl(\den{s},\den{t}\bigr) \;\leq\; \eps , \]
+    where $d$ is a metric.
+    \vfill
+    \pause
+    \begin{columns}[c]
+        \begin{column}{0.45\textwidth}
+            \[
+                \inferrule{a \qeq{\eps} b \\ b \qeq{\delta} c}
+                {a \qeq{\eps + \delta} c}
+            \]
+        \end{column}
+        \begin{column}{0.5\textwidth}
+            \centering
+            \begin{tikzpicture}[scale=1.0]
+                \node (a) at (0,0) {$a$};
+                \node (c) at (2.2,0) {$c$};
+                \node (b) at (1.1,1.1) {$b$};
+                \draw (a) -- node[above left,font=\small] {$\eps$} (b);
+                \draw (b) -- node[above right,font=\small] {$\delta$} (c);
+                \draw (a) -- node[below,font=\small] {$\leq \eps + \delta$} (c);
+            \end{tikzpicture}
+        \end{column}
+    \end{columns}
+    \vfill
+    Since $d$ is a metric: The triangle inequality makes the rule
+    above sound, and $d(a,b) = 0 \Rightarrow a = b$ makes $s \qeq{0} t$
+    mean strict equality.
+\end{frame}
+
+\begin{frame}{Relaxing to fuzzy relations}
+    A generalization relaxes the metric requirement to simply a fuzzy
+    relation
+    \[ d : A \times A \longrightarrow [0,1] . \]
+    \vfill
+    No additional assumptions: no symmetry, triangle
+    inequality, or $d(a,a) = 0$.
+    \vfill
+    \pause
+    Some caveats with this generalization:
+    \begin{itemize}
+        \item[--] The "transitivity" rule becomes unsound, and so do
+            quantitative reflexivity and symmetry.
+        \item[--] We need $=$ as a separate judgement form denoting exact
+            equality, since $s \qeq{0} t$ does not imply
+            $\den{s} = \den{t}$.
+    \end{itemize}
+    \vfill
+    \hfill{\small Mio, Sarkis and Vignudelli, LMCS 20 (2024).}
+\end{frame}
+
+\begin{frame}[fragile]{Formalization: fuzzy spaces and algebras}
+    \begin{srcbox}
+Record fuzzy_space (R : realType) := {
+    fcarrier : Type;
+    frel : fcarrier -> fcarrier -> R;
+    frel_range : forall x y, (0 <= frel x y <= 1)%R;
+}.
+
+Definition frel_nonexpansive {R : realType} (A B : fuzzy_space R)
+    (f : fcarrier A -> fcarrier B) : Prop :=
+  forall x y, (frel B (f x) (f y) <= frel A x y)%R.
+
+Record FuzzyAlgebra (R : realType) (sig : signature) := {
+  fa_space : fuzzy_space R;
+  fa_ops : algebra_ops sig (fcarrier fa_space)
+}.
+    \end{srcbox}
+\end{frame}
+
+\begin{frame}{What a quantitative equation looks like}
+    Let $\mathbb{A} = (A, \{op^{\mathbb{A}}\}, d_{\mathbb{A}})$ be a
+    quantitative algebra.
+    \vfill
+    \[
+        \mathbb{A} \models \forall (B,d_B).\, s = t
+        \quad\text{iff}\quad
+        \den{s} = \den{t}
+    \]
+    \vspace{-1em}
+    \[
+        \mathbb{A} \models \forall (B,d_B).\, s \qeq{\eps} t
+        \quad\text{iff}\quad
+        d_{\mathbb{A}}\bigl(\den{s},\den{t}\bigr) \leq \eps
+    \]
+    \vfill
+    for all non-expansive $\den{\cdot} : (B,d_B) \to
+    (A,d_\mathbb{A})$.
+    \vfill
+    \pause
+    {\small The context $(B,d_B)$ is itself a fuzzy relation on the
+    variables. It restricts which assignments are admissible. }
+\end{frame}
+
+\begin{frame}[fragile]{Formalization: judgements and interpretations}
+    \begin{columns}[T]
+        \begin{column}{0.5\textwidth}
+            \begin{srcbox}
+Inductive judgement {R : realType}
+    (sig : signature) (X : Type) :=
+  | EqJ  : term sig X -> term sig X ->
+           judgement sig X
+  | QEqJ : R -> term sig X -> term sig X ->
+           judgement sig X.
+            \end{srcbox}
+        \end{column}
+        \begin{column}{0.5\textwidth}
+            \begin{srcbox}
+Record interpretation
+    {R : realType} {sig}
+    (X : fuzzy_space R)
+    (A : FuzzyAlgebra R sig) := {
+  interpretation_fun :>
+    fcarrier X -> fcarrier (fa_space A);
+  interpretation_nexp :
+    frel_nonexpansive X (fa_space A)
+      interpretation_fun;
+}.
+            \end{srcbox}
+        \end{column}
+    \end{columns}
+    \vfill
+    \begin{srcbox}
+Fixpoint fuzzy_eval {R : realType} {sig X} (A : FuzzyAlgebra R sig)
+    (rho : X -> fcarrier (fa_space A)) (t : term sig X) :
+    fcarrier (fa_space A) :=
+  match t with
+  | Var x => rho x
+  | App f args => fa_ops A f (fun i => fuzzy_eval A rho (args i))
+  end.
+    \end{srcbox}
+    The two judgement forms of the previous slide are the two
+    constructors.
+\end{frame}
+
+\begin{frame}[fragile]{Formalization: satisfaction, theories, models}
+    \begin{srcbox}
+Definition satisfies {R : realType} {sig} (A : FuzzyAlgebra R sig)
+    (X : fuzzy_space R) (phi : judgement sig (fcarrier X)) : Prop :=
+  forall rho : interpretation X A,
+    match phi with
+    | EqJ s t => fuzzy_eval A rho s = fuzzy_eval A rho t
+    | QEqJ eps s t =>
+      (frel (fa_space A) (fuzzy_eval A rho s) (fuzzy_eval A rho t) <= eps)%R
+    end.
+
+Definition fuzzy_theory (R : realType) (sig : signature) :=
+  forall X : fuzzy_space R, @judgement R sig (fcarrier X) -> Prop.
+
+Definition fuzzy_models {R : realType} {sig} (A : FuzzyAlgebra R sig)
+    (E : fuzzy_theory R sig) : Prop :=
+  forall X phi, E X phi -> satisfies A X phi.
+    \end{srcbox}
+    \vfill
+    \rid{satisfies} is $\models$ for a single judgement and
+    \rid{fuzzy\_models} is $\mathbb{A} \models E$.
+\end{frame}
+
+% ============================================================
+\section{The quantitative theory $\ICA$}
+% ============================================================
+
+\begin{frame}{A quantitative theory of barycentric algebras}
+    \begin{align*}
+        \text{(Idempotency)}\quad &
+        \forall\ctx{c}{ & x \\ x & 1 }.\;
+        x \bpl{p} x = x
+        \\[0.4em]
+        \text{(Skew comm.)}\quad &
+        \forall\ctx{cc}{ & x & y \\ x & 1 & 1 \\ y & 1 & 1 }.\;
+        x \bpl{p} y = y \bpl{1-p} x
+        \\[0.4em]
+        \text{(Skew assoc.)}\quad &
+        \forall\ctx{ccc}{ & x & y & z \\
+        x & 1 & 1 & 1 \\ y & 1 & 1 & 1 \\ z & 1 & 1 & 1 }.\;
+        (x \bpl{p} y) \bpl{q} z = x \bpl{pq}
+        \bigl(y \bpl{\frac{(1-p)q}{1-pq}} z\bigr)
+        \\[0.6em]
+        \text{(Interpolative)}\quad &
+        \forall\ctx{cccc}{ & x & y & w & z \\
+            x & 1 & 1 & \eps & 1 \\
+            y & 1 & 1 & 1 & \delta \\
+            w & 1 & 1 & 1 & 1 \\
+        z & 1 & 1 & 1 & 1 }.\;
+        x \bpl{p} y \;\qeq{p\eps + (1-p)\delta}\; w \bpl{p} z
+    \end{align*}
+    \vfill
+    {\footnotesize The first three are the old axioms over the discrete
+        context. The fourth constrains only $d(\den{x},\den{w}) \leq \eps$ and
+    $d(\den{y},\den{z}) \leq \delta$; every other entry is $1$.}
+    \hfill{\footnotesize (the theory $\ICA$)}
+\end{frame}
+
+\begin{frame}[fragile]{Formalization: the $\ICA$ signature and its contexts}
+    \begin{srcbox}
+Record ica_weight (R : realType) := {
+  ica_weight_val : R;
+  ica_weight_open : (0 < ica_weight_val < 1)%R;   (* strictly inside (0,1) *)
+}.
+Inductive ica_sym (R : realType) : Type :=
+  | ica_plus : ica_weight R -> ica_sym R.
+Definition ica_signature {R : realType} : signature :=
+  {| sym := ica_sym R; arity := fun _ => 2 |}.
+Notation "x <+ p +> y" := (ica_op p x y).
+    \end{srcbox}
+
+    \begin{srcbox}
+Definition ica_full_space (R : realType) (n : nat) : fuzzy_space R.
+  (* 'I_n with frel = fun _ _ => 1 : the discrete fuzzy relation *)
+
+Definition ica_interp_rel {R : realType} (eps delta : R) (a b : 'I_4) : R :=
+  match nat_of_ord a, nat_of_ord b with
+  | 0, 2 => eps  | 1, 3 => delta  | _, _ => 1
+  end.
+    \end{srcbox}
+    Under $0 = x$, $1 = y$, $2 = w$, $3 = z$ the second one is the
+    interpolative matrix, verbatim.
+\end{frame}
+
+\begin{frame}[fragile]{Formalization: \rid{Inductive ica\_theory}}
+    \begin{srcbox}
+Inductive ica_theory (R : realType) : fuzzy_theory R (@ica_signature R) :=
+  | ICA_Idem (p : ica_weight R) :
+      @ica_theory R (ica_full_space R 1)
+        (EqJ ((Var (inord 0)) <+ p +> (Var (inord 0))) (Var (inord 0)))
+  | ICA_Skew_Comm (p : ica_weight R) :
+      @ica_theory R (ica_full_space R 2)
+        (EqJ ((Var (inord 0)) <+ p +> (Var (inord 1)))
+             ((Var (inord 1)) <+ ica_weight_complement p +> (Var (inord 0))))
+  | ICA_Skew_Assoc (p q : ica_weight R) :
+      @ica_theory R (ica_full_space R 3)
+        (EqJ (((Var (inord 0)) <+ p +> (Var (inord 1))) <+ q +> (Var (inord 2)))
+             ((Var (inord 0)) <+ ica_weight_product p q +>
+               ((Var (inord 1)) <+ ica_weight_assoc_inner p q +> (Var (inord 2)))))
+  | ICA_Interp (p : ica_weight R) (eps delta : R)
+      (Heps : (0 <= eps <= 1)%R) (Hdelta : (0 <= delta <= 1)%R) :
+      @ica_theory R (@ica_interp_space R eps delta Heps Hdelta)
+        (QEqJ (weighted_sum (ica_probability_weight p) eps delta)
+          ((Var (inord 0)) <+ p +> (Var (inord 1)))
+          ((Var (inord 2)) <+ p +> (Var (inord 3)))).
+    \end{srcbox}
+        \vfill
+        An \rid{Inductive} in \rid{fuzzy\_theory R sig}, one constructor per
+        axiom scheme.
+    \end{frame}
+
+    % ============================================================
+    \section{The Kantorovich model}
+    % ============================================================
+
+    \begin{frame}{An aside about moving piles of sand}
+        \begin{center}
+            \begin{tikzpicture}[scale=0.8]
+                % left pile: two bumps
+                \draw[thick,rounded corners=1pt]
+                (0,0) .. controls (0.4,0.1) and (0.5,1.4) .. (0.9,1.4)
+                .. controls (1.2,1.4) and (1.2,0.5) .. (1.45,0.5)
+                .. controls (1.7,0.5) and (1.75,1.5) .. (2.1,1.5)
+                .. controls (2.5,1.5) and (2.6,0.1) .. (3.1,0);
+                % right pile: one bump
+                \draw[thick,rounded corners=1pt]
+                (6.2,0) .. controls (6.9,0.1) and (7.1,1.6) .. (7.8,1.6)
+                .. controls (8.5,1.6) and (8.7,0.1) .. (9.4,0);
+                % figure with shovel
+                \begin{scope}[shift={(3.9,0.0)},scale=0.9]
+                    \draw[thick] (0.5,1.9) circle (0.28);
+                    \fill (0.42,1.95) circle (0.03); \fill
+                    (0.58,1.95) circle (0.03);
+                    \draw[thick] (0.5,1.62) -- (0.5,0.85);
+                    \draw[thick] (0.5,1.45) -- (0.05,1.05);
+                    \draw[thick] (0.5,1.45) -- (0.95,1.15);
+                    \draw[thick] (0.5,0.85) -- (0.2,0.05);
+                    \draw[thick] (0.5,0.85) -- (0.8,0.05);
+                    \draw[thick] (0.05,1.05) -- (-0.25,0.35);
+                    \draw[thick,fill=goalbg] (-0.42,0.35) -- (-0.08,0.35)
+                    -- (-0.13,0.05) -- (-0.37,0.05) -- cycle;
+                \end{scope}
+                \draw[-{Stealth[length=3mm]},thick] (0.3,-0.45) -- (9.1,-0.45);
+                \node at (1.55,-0.95) {$\mu$};
+                \node at (7.8,-0.95) {$\nu$};
+            \end{tikzpicture}
+        \end{center}
+        \vfill
+        Out of all the possible ways to move the sand, which is the least
+        amount of work? (Also known as optimal transport)
+        \[
+            \Kan(d)(\mu,\nu) \;=\; \inf_{\gamma \in \Cpl(\mu,\nu)}
+            \underbrace{\sum_{a,b \in A} \gamma(a,b) \cdot d(a,b)}_{V_d(\gamma)}
+        \]
+        \vfill
+        $\Cpl(\mu,\nu)$ is the set of joint distributions with
+        marginals $\mu$ and $\nu$, the transport plans.
+    \end{frame}
+
+    \begin{frame}[fragile]{Formalization: couplings and the lifting}
+        \begin{srcbox}
+Record coupling {R : realType} {X Y : finType}
+    (mu : probability_distribution R X)
+    (nu : probability_distribution R Y) := {
+  coupling_distribution : joint_probability_distribution R X Y;
+  coupling_fst : forall x, \sum_(y : Y) coupling_distribution x y = mu x;
+  coupling_snd : forall y, \sum_(x : X) coupling_distribution x y = nu y;
+}.
+
+Definition coupling_cost {R : realType} {X Y : finType} (d : X -> Y -> R)
+    {mu} {nu} (gamma : coupling mu nu) : R :=
+  \sum_(x : X) \sum_(y : Y) coupling_distribution gamma x y * d x y.
+
+Definition kantorovich_lifting {R : realType} {X : finType} (d : X -> X -> R)
+    (mu nu : probability_distribution R X) : R :=
+  inf [set r : R | exists gamma : coupling mu nu, r = coupling_cost d gamma].
+        \end{srcbox}
+        \begin{itemize}
+            \item A \rid{coupling} is a joint distribution bundled with its two
+                marginal equations.
+        \end{itemize}
+    \end{frame}
+
+    \begin{frame}{A model in the quantitative setting}
+        The finitely supported distributions, their convex sums, and the
+        Kantorovich lifting form a quantitative algebra
+        $(\Dist(A),\{\bpl{p}\},\Kan(d))$.
+        \vfill
+        \pause
+        Adding the interpolative axiom is exactly what axiomatises it:
+        \vfill
+        \begin{block}{Soundness \hfill{\normalfont\small (Prop.~4.6
+            and Cor.~4.7)}}
+            If $s \qeq{\eps} t$ is derivable, then
+            $\Kan(d)(\den{s},\den{t}) \leq \eps$.
+        \end{block}
+        \vfill
+        \begin{block}{Completeness \hfill{\normalfont\small (Prop.~4.10)}}
+            If $\Kan(d)(\den{s},\den{t}) \leq \eps$, then $s \qeq{\eps} t$ is
+            derivable.
+        \end{block}
+        \vfill
+        \hfill{\small Mio, Compact Quantitative Theories of Convex Algebras,
+        MFPS 2025.}
+    \end{frame}
+
+    \begin{frame}[fragile]{Formalization: the Kantorovich algebra}
+        \begin{srcbox}
+Section KantorovichModel.
+Context {R : realType} {X : finType}.
+Variable d : X -> X -> R.
+Hypothesis Hd : forall x y, (0 <= d x y <= 1)%R.
+
+Definition finite_fuzzy_space : fuzzy_space R :=
+  {| fcarrier := X; frel := d; frel_range := Hd |}.
+
+Definition kantorovich_fuzzy_space : fuzzy_space R :=
+  {| fcarrier := probability_distribution R X;
+     frel := kantorovich_lifting d;
+     frel_range := fun mu nu => fuzzy_kantorovich_lifting mu nu Hd |}.
+
+Definition kantorovich_algebra : FuzzyAlgebra R (@ica_signature R) :=
+  {| fa_space := kantorovich_fuzzy_space; fa_ops := kantorovich_ops |}.
+        \end{srcbox}
+        \vfill
+        \rid{kantorovich\_ops} interprets \rid{ica\_plus p} as
+        \rid{convex\_mixture}, and \rid{fuzzy\_kantorovich\_lifting} is the
+        bound $0 \leq \Kan(d) \leq 1$, which is the range obligation that
+        makes $\Kan(d)$ a legal \rid{fuzzy\_space}. So this record is
+        $(\Dist(A),\{\bpl{p}\},\Kan(d))$, and the goal is now
+        \rid{fuzzy\_models kantorovich\_algebra ica\_theory}.
+    \end{frame}
+
+    \begin{frame}{The proof idea: run both transport plans in parallel}
+        Assume $\Kan(d)(\mu_x,\mu_w) \leq \eps$ and
+        $\Kan(d)(\mu_y,\mu_z) \leq \delta$. We must show
+        \[
+            \Kan(d)(\mu_x \bpl{p} \mu_y,\ \mu_w \bpl{p} \mu_z)
+            \;\leq\; p\,\eps + (1-p)\,\delta .
+        \]
+        \pause
+        \vfill
+        \begin{enumerate}
+            \item $\Kan$ is an infimum, so take almost optimal plans:
+                $\gamma \in \Cpl(\mu_x,\mu_w)$ and
+                $\gamma' \in \Cpl(\mu_y,\mu_z)$ with
+                $V_d(\gamma) \leq \eps + \lambda$,
+                $V_d(\gamma') \leq \delta + \lambda$.
+                \medskip
+            \item $\gamma \bpl{p} \gamma' \in
+                \Cpl(\mu_x \bpl{p} \mu_y,\ \mu_w \bpl{p} \mu_z)$: run the first
+                plan on the $p$-fraction of the mass and the second on the rest.
+                \medskip
+            \item $V_d$ is "mixture-preserving":
+                $V_d(\gamma \bpl{p} \gamma') = p\,V_d(\gamma) +
+                (1-p)V_d(\gamma')$.
+                \medskip
+            \item The infimum is below this one plan, so the bound is
+                $p\eps + (1-p)\delta + \lambda$; then let $\lambda \to 0$.
+        \end{enumerate}
+        \vfill
+    \end{frame}
+
+    \begin{frame}[fragile]{The lemmas the proof needs}
+        \begin{srcbox}
+Lemma coupling_convex_mixture (p : probability_weight R)
+    (gamma1 : coupling mu1 nu1) (gamma2 : coupling mu2 nu2) :
+  coupling (convex_mixture p mu1 mu2) (convex_mixture p nu1 nu2).
+        \end{srcbox}
+        \begin{srcbox}
+Lemma kantorovich_almost_optimal (d : X -> X -> R) (mu nu : ...) (eta : R) :
+  (forall x y, (0 <= d x y)%R) -> (0 < eta)%R ->
+  exists gamma : coupling mu nu,
+    (coupling_cost d gamma < kantorovich_lifting d mu nu + eta)%R.
+
+Lemma coupling_cost_convex_mixture (p : probability_weight R) ... :
+  coupling_cost d (coupling_convex_mixture p gamma1 gamma2)
+    = weighted_sum p (coupling_cost d gamma1) (coupling_cost d gamma2).
+
+Lemma kantorovich_convex_mixture (d : X -> X -> R) (p : probability_weight R) :
+  (forall x y, (0 <= d x y <= 1)%R) ->
+  (kantorovich_lifting d (convex_mixture p mu1 mu2) (convex_mixture p nu1 nu2)
+     <= weighted_sum p (kantorovich_lifting d mu1 nu1)
+                       (kantorovich_lifting d mu2 nu2))%R.
+        \end{srcbox}
+            \end{frame}
+
+            \newcommand{\modpane}[1]{%
+                \begin{scriptbox}[fontupper=\ttfamily\fontsize{5.8pt}{6.6pt}\selectfont\frenchspacing]%
+                    \pstep{#1}\modelscript
+            \end{scriptbox}}
+
+            \begin{frame}[fragile]{Modelhood: the three equational goals}
+                \begin{columns}[T]
+                    \begin{column}{0.44\textwidth}\modpane{2}
+                    \end{column}
+                    \begin{column}{0.54\textwidth}
+                        \begin{goalbox}[title={Goal 1 / 4 \quad (ICA\_Idem)}]
+                            \begin{gctx}
+d : X -> X -> R
+Hd : forall x y : X, 0 <= d x y <= 1
+p : ica_weight R
+rho : interpretation (ica_full_space R 1)
+        kantorovich_algebra
+                            \end{gctx}
+                            \tcblower
+                            \begin{gconc}
+|- fuzzy_eval kantorovich_algebra rho
+     (Var (inord 0) <+ p +> Var (inord 0)) =
+   fuzzy_eval kantorovich_algebra rho (Var (inord 0))
+                            \end{gconc}
+                        \end{goalbox}
+                        \smallskip
+                        {\footnotesize \rid{case: Hphi} on the
+                            inductive theory gives one
+                            goal per axiom, four in total.
+                            \\[0.5em]
+                            The first three are equalities of
+                            distributions. They are
+                            closed by the \rid{convex\_mixture\_*}
+                            lemmas from earlier, one
+                        tactic each.}
+                    \end{column}
+                \end{columns}
+            \end{frame}
+
+            \begin{frame}[fragile]{Modelhood: the interpolative goal}
+                \begin{columns}[T]
+                    \begin{column}{0.44\textwidth}\modpane{3}
+                    \end{column}
+                    \begin{column}{0.54\textwidth}
+                        \begin{goalbox}[title={Goal 4 / 4 \quad (ICA\_Interp),
+                            as it arrives}]
+                            \begin{gctx}
+p : ica_weight R
+eps, delta : R
+Heps : 0 <= eps <= 1
+Hdelta : 0 <= delta <= 1
+rho : interpretation (ica_interp_space Heps Hdelta)
+        kantorovich_algebra
+                            \end{gctx}
+                            \tcblower
+                            \begin{gconc}
+|- frel (fa_space kantorovich_algebra)
+     (fuzzy_eval kantorovich_algebra rho
+        (Var (inord 0) <+ p +> Var (inord 1)))
+     (fuzzy_eval kantorovich_algebra rho
+        (Var (inord 2) <+ p +> Var (inord 3)))
+   <= weighted_sum (ica_probability_weight p) eps delta
+                            \end{gconc}
+                        \end{goalbox}
+                        {\footnotesize The context is the four-point
+                            space carrying $(0,2) \mapsto \eps$ and
+                            $(1,3) \mapsto \delta$. First: evaluate the
+                        two $\bpl{p}$-terms.}
+                    \end{column}
+                \end{columns}
+            \end{frame}
+
+            \begin{frame}[fragile]{Modelhood: convexity of the lifting}
+                \begin{columns}[T]
+                    \begin{column}{0.44\textwidth}\modpane{4}
+                    \end{column}
+                    \begin{column}{0.54\textwidth}
+                        \begin{goalbox}[title={after
+                            \texttt{rewrite !kantorovich\_eval\_op}}]
+                            \begin{gconc}
+|- frel (fa_space kantorovich_algebra)
+     (convex_mixture (ica_probability_weight p)
+        (fuzzy_eval kantorovich_algebra rho (Var (inord 0)))
+        (fuzzy_eval kantorovich_algebra rho (Var (inord 1))))
+     (convex_mixture (ica_probability_weight p)
+        (fuzzy_eval kantorovich_algebra rho (Var (inord 2)))
+        (fuzzy_eval kantorovich_algebra rho (Var (inord 3))))
+   <= weighted_sum (ica_probability_weight p) eps delta
+                            \end{gconc}
+                        \end{goalbox}
+                        {\footnotesize Both sides are now literal convex
+                            mixtures, which is exactly the shape of
+                        \rid{kantorovich\_convex\_mixture}.}
+                    \end{column}
+                \end{columns}
+            \end{frame}
+
+            \begin{frame}[fragile]{Modelhood: split the weighted sum}
+                \begin{columns}[T]
+                    \begin{column}{0.44\textwidth}\modpane{5}
+                    \end{column}
+                    \begin{column}{0.54\textwidth}
+                        \begin{goalbox}[title={after
+                                    \texttt{apply: (le\_trans
+                            (kantorovich\_convex\_mixture ...))}}]
+                            \begin{gconc}
+|- weighted_sum (ica_probability_weight p)
+     (kantorovich_lifting d
+        (fuzzy_eval kantorovich_algebra rho (Var (inord 0)))
+        (fuzzy_eval kantorovich_algebra rho (Var (inord 2))))
+     (kantorovich_lifting d
+        (fuzzy_eval kantorovich_algebra rho (Var (inord 1)))
+        (fuzzy_eval kantorovich_algebra rho (Var (inord 3))))
+   <= weighted_sum (ica_probability_weight p) eps delta
+                            \end{gconc}
+                        \end{goalbox}
+                        {\footnotesize The mixture is gone: both sides are
+                            $\oplus_p$, and $\oplus_p$ is monotone in each
+                        argument.}
+                    \end{column}
+                \end{columns}
+            \end{frame}
+
+            \begin{frame}[fragile]{Modelhood: non-expansiveness of
+                \texttt{rho}}
+                \begin{columns}[T]
+                    \begin{column}{0.44\textwidth}\modpane{6}
+                    \end{column}
+                    \begin{column}{0.54\textwidth}
+                        \begin{goalbox}[title={after
+                                    \texttt{apply: weighted\_sum\_le}
+                            --- Goal 1 / 2}]
+                            \begin{gconc}
+|- kantorovich_lifting d
+     (fuzzy_eval kantorovich_algebra rho (Var (inord 0)))
+     (fuzzy_eval kantorovich_algebra rho (Var (inord 2)))
+   <= eps
+                            \end{gconc}
+                        \end{goalbox}
+                        \begin{goalbox}[title={Goal 2 / 2}]
+                            \begin{gconc}
+|- kantorovich_lifting d
+     (fuzzy_eval kantorovich_algebra rho (Var (inord 1)))
+     (fuzzy_eval kantorovich_algebra rho (Var (inord 3)))
+   <= delta
+                            \end{gconc}
+                        \end{goalbox}
+                        {\footnotesize One goal per component. Each is
+                            $\Kan(d)(\den{x},\den{w}) \leq \eps$, and
+                        \rid{rho} is non-expansive by construction.}
+                    \end{column}
+                \end{columns}
+            \end{frame}
+
+            \begin{frame}[fragile]{Modelhood: the context matrix, read off}
+                \begin{columns}[T]
+                    \begin{column}{0.44\textwidth}\modpane{7}
+                    \end{column}
+                    \begin{column}{0.54\textwidth}
+                        \begin{goalbox}[title={after \texttt{apply: (le\_trans
+                            (interpretation\_nexp rho (inord 0) (inord 2)))}}]
+                            \begin{gconc}
+|- frel (ica_interp_space Heps Hdelta) (inord 0) (inord 2) <= eps
+                            \end{gconc}
+                        \end{goalbox}
+                        \begin{goalbox}[title={after
+                            \texttt{rewrite /= /ica\_interp\_rel}}]
+                            \begin{gconc}
+|- match nat_of_ord (inord 0) with
+   | 0 => match nat_of_ord (inord 2) with 2 => eps | _ => 1 end
+   | 1 => match nat_of_ord (inord 2) with 3 => delta | _ => 1 end
+   | _ => 1
+   end <= eps
+                            \end{gconc}
+                        \end{goalbox}
+                        {\footnotesize \rid{!inordK} computes the two indices,
+                            the matrix returns its $(0,2)$ entry, and the goal
+                        is \rid{eps <= eps}.}
+                    \end{column}
+                \end{columns}
+            \end{frame}
+
+            \begin{frame}[fragile]{Modelhood: the second component}
+                \begin{columns}[T]
+                    \begin{column}{0.44\textwidth}\modpane{8}
+                    \end{column}
+                    \begin{column}{0.54\textwidth}
+                        \begin{goalbox}[title={the one remaining goal}]
+                            \begin{gconc}
+|- kantorovich_lifting d
+     (fuzzy_eval kantorovich_algebra rho (Var (inord 1)))
+     (fuzzy_eval kantorovich_algebra rho (Var (inord 3)))
+   <= delta
+                            \end{gconc}
+                        \end{goalbox}
+                        {\footnotesize The same two tactics at $(1,3)$, where
+                            the matrix returns $\delta$. \\[0.4em]
+                            So the whole interpolative axiom is: convexity of
+                            the lifting, monotonicity of $\oplus_p$, and two
+                        lookups in the context matrix.}
+                    \end{column}
+                \end{columns}
+            \end{frame}
+
+            % ============================================================
+            \section{Soundness}
+            % ============================================================
+
+            \begin{frame}{The general rules}
+                What survives when $d$ is an arbitrary fuzzy relation:
+                \vspace{0.6em}
+                \begin{columns}[c]
+                    \begin{column}{0.34\textwidth}
+                        \[
+                            \inferrule{ }{x \qeq{d_B(x,y)} y}
+                        \]
+                        \centering{\footnotesize read off the context}
+                    \end{column}
+                    \begin{column}{0.32\textwidth}
+                        \[
+                            \inferrule{\eps \leq \delta \\ a
+                            \qeq{\eps} b}{a \qeq{\delta} b}
+                        \]
+                        \centering{\footnotesize weakening}
+                    \end{column}
+                    \begin{column}{0.3\textwidth}
+                        \[
+                            \inferrule{ }{a \qeq{1} b}
+                        \]
+                        \centering{\footnotesize $d \leq 1$ always}
+                    \end{column}
+                \end{columns}
+                \vspace{1.2em}
+                \[
+                    \inferrule{\{\, s \qeq{\delta} t \mid \eps < \delta \,\}}
+                    {s \qeq{\eps} t}
+                \]
+                \begin{itemize}
+                    \item[--] The bottom rule has infinite
+                        width, so proofs are
+                        no longer finite objects.
+                    \item[--] Known as the order-completeness,
+                        Archimedean, or continuity rule.
+                    \item[--] Proven to be not needed
+                        for barycentric
+                        algebras: $\ICA$ is a compact theory.
+                \end{itemize}
+            \end{frame}
+
+            \begin{frame}[fragile]{Formalization: one inductive, two modes}
+                \begin{srcbox}
+Inductive frel_derives {R : realType} {sig : signature}
+    (E : fuzzy_theory R sig) : frel_derivation_mode ->
+    forall X : fuzzy_space R, @judgement R sig (fcarrier X) -> Prop :=
+  | FD_Init : forall mode X phi, E X phi -> frel_derives E mode phi
+  | FD_EqRefl | FD_EqSym | FD_EqTrans | FD_EqCong  (* Birkhoff, for [=] only *)
+  | FD_UseVariables : forall mode X (x y : fcarrier X),
+      frel_derives E mode (QEqJ (frel X x y) (Var x) (Var y))
+  | FD_Subst : forall mode X Y phi (sigma : fcarrier X -> term sig (fcarrier Y)),
+      frel_derives E mode phi ->
+      (forall x y, frel_derives E mode (QEqJ (frel X x y) (sigma x) (sigma y))) ->
+      frel_derives E mode (subst_judgement sigma phi)
+  | FD_QEqReplaceL | FD_QEqReplaceR   (* rewriting a [=] inside a [=_eps] *)
+  | FD_Up : forall mode X eps delta s t, (eps <= delta)%R ->
+      frel_derives E mode (QEqJ eps s t) -> frel_derives E mode (QEqJ delta s t)
+  | FD_Max : forall mode X s t, frel_derives E mode (QEqJ 1 s t)
+  | FD_OrderComplete : forall X eps (s t : term sig (fcarrier X)),
+      (forall delta, (eps < delta)%R -> frel_derives E FRelFull (QEqJ delta s t)) ->
+      frel_derives E FRelFull (QEqJ eps s t).
+                \end{srcbox}
+                    \begin{itemize}\small
+                        \item \rid{FD\_Subst}'s second premise is
+                            exactly ``$\sigma$ is
+                            provably non-expansive''.
+                        \item \rid{FD\_OrderComplete} is only allowed at
+                            \rid{FRelFull}, so the
+                            finitary system lives inside the same
+                            inductive, and compactness
+                            is the statement that the two modes agree.
+                    \end{itemize}
+                \end{frame}
+
+                \newcommand{\sndpane}[1]{%
+                    \begin{scriptbox}[fontupper=\ttfamily\fontsize{5.8pt}{6.6pt}\selectfont\frenchspacing]%
+                        \pstep{#1}\soundnessscript
+                \end{scriptbox}}
+
+                \begin{frame}[fragile]{Soundness of the system:
+                    $\vdash\ \Rightarrow\ \models$}
+                    \begin{columns}[T]
+                        \begin{column}{0.44\textwidth}\sndpane{2}
+                        \end{column}
+                        \begin{column}{0.54\textwidth}
+                            \begin{goalbox}[title={Proof state}]
+                                \begin{gctx}
+Hmodel : forall X0 phi0, E X0 phi0 ->
+  forall rho0 : interpretation X0 A,
+    match phi0 with ... end
+Hderive : frel_derives E mode phi
+rho : interpretation X A
+                                \end{gctx}
+                                \tcblower
+                                \begin{gconc}
+|- mode = FRelFinite ->
+   match phi with
+   | EqJ s t => fuzzy_eval A rho s = fuzzy_eval A rho t
+   | QEqJ eps s t =>
+     frel (fa_space A) (fuzzy_eval A rho s) (fuzzy_eval A rho t) <= eps
+   end
+                                \end{gconc}
+                            \end{goalbox}
+                        \end{column}
+                    \end{columns}
+                \end{frame}
+
+                \begin{frame}[fragile]{Soundness: the \rid{FD\_UseVariables} case}
+                    \begin{columns}[T]
+                        \begin{column}{0.42\textwidth}\sndpane{5}
+                        \end{column}
+                        \begin{column}{0.56\textwidth}
+                            {\footnotesize The rule $x \qeq{d_B(x,y)} y$: two
+                                variables are as far apart as the context
+                            space says.}
+                            \begin{goalbox}[title={Goal 6 / 12 \quad
+                                (FD\_UseVariables)}]
+                                \begin{gctx}
+X : fuzzy_space R
+x, y : fcarrier X
+rho : interpretation X A
+                                \end{gctx}
+                                \tcblower
+                                \begin{gconc}
+|- frel (fa_space A) (fuzzy_eval A rho (Var x))
+                     (fuzzy_eval A rho (Var y))
+   <= frel X x y
+                                \end{gconc}
+                            \end{goalbox}
+                            \begin{goalbox}[title={after \texttt{move => //=}}]
+                                \begin{gconc}
+|- (frel (fa_space A) (rho x) (rho y) <= frel X x y) = true
+                                \end{gconc}
+                            \end{goalbox}
+                            {\footnotesize \rid{/=} evaluates \rid{fuzzy\_eval}
+                                at a \rid{Var}, leaving
+                                \rid{frel\_nonexpansive} at $x,y$ --- the
+                                record's second field. So
+                            \rid{apply: (interpretation\_nexp rho)}.}
+                        \end{column}
+                    \end{columns}
+                \end{frame}
+
+                % \begin{frame}[fragile]{Soundness: the infinitary
+                %     rule, in both modes}
+                %     \begin{columns}[T]
+                %         \begin{column}{0.47\textwidth}
+                %             \begin{goalbox}[title={\texttt{derives\_fin\_sound},
+                %                 Goal 12/12}]
+                %                 \begin{gctx}
+                %                     Hmode : FRelFull = FRelFinite
+                %                 \end{gctx}
+                %                 \tcblower
+                %                 \begin{gconc}
+                %                     |- frel (fa_space A) (fuzzy_eval A rho s)
+                %                     (fuzzy_eval A rho t) <= eps
+                %                 \end{gconc}
+                %             \end{goalbox}
+                %             {\footnotesize \rid{FD\_OrderComplete}
+                %                 cannot have been used, since
+                %                 it only produces derivations at
+                %             \rid{FRelFull}. }
+                %         \end{column}
+                %         \begin{column}{0.51\textwidth}
+                %             \begin{goalbox}[title={\texttt{derives\_full\_sound},
+                %                 Goal 12/12}]
+                %                 \begin{gctx}
+                %                     H0 : forall delta : R, eps < delta ->
+                %                     forall rho0 : interpretation X A,
+                %                     mode = FRelFull ->
+                %                     frel (fa_space A) (fuzzy_eval A rho0 s)
+                %                     (fuzzy_eval A rho0 t) <= delta
+                %                     Hmode : mode = FRelFull
+                %                 \end{gctx}
+                %                 \tcblower
+                %                 \begin{gconc}
+                %                     |- frel (fa_space A) (fuzzy_eval A rho s)
+                %                     (fuzzy_eval A rho t) <= eps
+                %                 \end{gconc}
+                %             \end{goalbox}
+                %             \begin{srcbox}
+                %                 Lemma le_of_all_strict_upper_bounds
+                %                 (a eps : R) :
+                %                 (forall delta, (eps < delta)%R -> (a
+                %                     % <= delta)%R) ->
+                %                     (a <= eps)%R.
+                %                     Proof.
+                %                     move => H. apply
+                %                     /Num.Theory.ler_addgt0Pr => e He.
+                %                     apply: H. by rewrite Num.Theory.ltrDl.
+                %                     Qed.
+                %                 \end{srcbox}
+                %             \end{column}
+                %         \end{columns}
+                %     \end{frame}
+
+                \begin{frame}[fragile]{Soundness for Kantorovich}
+                    \begin{srcbox}
+Definition dirac_interpretation :
+    interpretation finite_fuzzy_space kantorovich_algebra :=
+  @Build_interpretation R (@ica_signature R)
+    finite_fuzzy_space kantorovich_algebra
+    (fun x : X => dirac x)
+    (fun x y => kantorovich_dirac_le x y Hd).
+
+Definition ica_term_distribution (s : term (@ica_signature R) X) :=
+  fuzzy_eval kantorovich_algebra (fun x : X => dirac x) s.
+
+Theorem finite_kantorovich_soundness
+    (s t : term (@ica_signature R) X) (eps : R) :
+  @derives_full R (@ica_signature R) (@ica_theory R)
+    finite_fuzzy_space (QEqJ eps s t) ->
+  (kantorovich_lifting d (ica_term_distribution s)
+                         (ica_term_distribution t) <= eps)%R.
+Proof.
+  move => H.
+  apply: (derives_full_sound kantorovich_models_ica H dirac_interpretation).
+Qed.
+                    \end{srcbox}
+                    \vfill
+                    Three ingredients, one line: generic
+                    soundness, modelhood, and the
+                    Dirac interpretation. Dirac is not a
+                    restriction.
+                \end{frame}
+
+                % ============================================================
+                \section{Where the development stands}
+                % ============================================================
+
+                \begin{frame}[fragile]{Completeness: what is in place}
+                    \textbf{Done:} \file{Signature}, \file{FuzzyRelation},
+                    \file{FRelDeduction} (both modes sound),
+                    \file{ProbabilityDistribution},
+                    \file{KantorovichProperties},
+                    \file{ICA}.
+                    \medskip
+
+                    \textbf{In progress},
+                    \file{BarycentricNormalization}:
+                    \begin{srcbox}
+Fixpoint term_distribution (s : term (@ica_signature R) X)
+  : probability_distribution R X.       (* the denotation [s] *)
+
+Lemma term_distribution_support (s : term (@ica_signature R) X) :
+  distribution_support (term_distribution s) = term_vars s.
+
+Lemma condition_recover (mu : probability_distribution R X) (x : X) :
+  (mu x < 1) -> x \in distribution_support mu ->
+  convex_mixture (ica_probability_weight (ica_weight_clamp (mu x)))
+    (dirac x) (condition mu x) = mu.
+                    \end{srcbox}
+                \end{frame}
+
+                \begin{frame}{How to proceed}
+                    \begin{enumerate}
+                        \item Normal forms. Iterate
+                            \rid{condition\_recover} to
+                            write every term as an $n$-ary convex
+                            combination
+                            $\sum_i p_i x_i$ over its support.
+                            \medskip
+                        \item For $e(\bm x) =
+                            \sum_i p_i x_i$ and
+                            tuples $\bm a, \bm b$:
+                            \[
+                                \ICA \vdash \forall(A,d).\, e(\bm
+                                a) \qeq{\eps} e(\bm b),
+                                \qquad \eps = \textstyle\sum_i
+                                p_i\, d(a_i,b_i),
+                            \]
+                            by induction on $n$, one instance of
+                            the interpolative axiom per
+                            step.
+                            \medskip
+                        \item A
+                            coupling $\gamma \in
+                            \Cpl(\den{s},\den{t})$ is a recipe
+                            for rewriting $s$ and $t$ into
+                            the same shape $e(\bm x)$; then (2) gives
+                            $s \qeq{V_d(\gamma)} t$, and
+                            \rid{FD\_Up} weakens to $\eps$.
+                            \medskip
+                            % \item \textbf{Finiteness.} Step 3 needs
+                            %     one coupling, not the
+                            %     infimum: with an optimal coupling the
+                            %     proof is finite, giving
+                            %     compactness of $\ICA$. \\
+                            %     {\small $\hookrightarrow$ requires
+                            %         compactness of
+                            %         $\Cpl(\mu,\nu)$, the one
+                            %         genuinely topological ingredient still
+                            %     missing.}
+                    \end{enumerate}
+                \end{frame}
+
+                % ============================================================
+                \section{Outlook: the quantum side}
+                % ============================================================
+
+                \begin{frame}{Extending to the quantum setting}
+                    In my PhD I want to apply this line of
+                    thinking to quantum
+                    computing: start with a theory for mixed
+                    quantum states, later a
+                    theory for quantum programs.
+                    \vfill
+                    Why mixed states?
+                    \begin{itemize}
+                        \item[--] They can be viewed as
+                            probability distributions over pure
+                            states.
+                            \medskip
+                        \item[--] They are a model of the
+                            non-quantitative barycentric
+                            axioms: $\rho \bpl{p} \sigma = p\rho
+                            + (1-p)\sigma$ is again a
+                            density matrix.
+                            \medskip
+                        \item[--] There is already a notion of
+                            quantum optimal transport:
+                            \[
+                                T_C(\rho,\sigma) \;=\;
+                                \inf_{\Gamma \in
+                                \mathcal{C}(\rho,\sigma)}
+                                \operatorname{tr}(C\Gamma)
+                            \]
+                            where $\mathcal{C}(\rho,\sigma)$ are
+                            the quantum couplings, the
+                            bipartite states with marginals
+                            $\rho$ and $\sigma$.
+                    \end{itemize}
+                \end{frame}
+
+                \begin{frame}{Should be easy, right?}
+                    \begin{itemize}
+                        \item[--] Turns out that the barycentric
+                            structure can only reveal
+                            the transportation of mass.
+                            \medskip
+                        \item[--] Mixed states can be coupled in
+                            many different ways that
+                            transport the mass identically, but
+                            give different
+                            $\operatorname{tr}(C\Gamma)$.
+                            \medskip
+                            {\small So the
+                                interpolative axiom, stated
+                                purely in terms of $\bpl{p}$,
+                            cannot separate them. }
+                            \medskip
+                        \item[--] Currently using a mix of graphs
+                            and linear algebra, which
+                            seems promising.
+                    \end{itemize}
+                \end{frame}
+
+                % ============================================================
+                % ============================================================
+
+                \begin{frame}{Conclusion}
+                    \begin{itemize}
+                        \item[--] Quantitative equations $s
+                            \qeq{\eps} t$ replace exact
+                            equality by bounded distance. Over
+                            fuzzy relations the two
+                            judgement forms $=$ and $\qeq{\eps}$
+                            have to be kept apart, and
+                            the triangle rule has to go.
+                            \medskip
+                        \item[--] Formalized in Rocq/MathComp:
+                            signatures and terms, fuzzy
+                            algebras, interpretations, and the
+                            deduction system in two modes,
+                            finitary and order-complete, inside a
+                            single inductive.
+                            \medskip
+                        \item[--] Soundness is proved for both modes
+                            (\rid{derives\_fin\_sound},
+                            \rid{derives\_full\_sound}), and the
+                            Kantorovich lifting on $\Dist(X)$ is
+                            proved to be a model of
+                            $\ICA$
+                            (\rid{kantorovich\_models\_ica}),
+                            which gives soundness of
+                            $\ICA$ with respect to the Kantorovich distance.
+                            \medskip
+                        \item[--] Completeness is under way: the
+                            normalization machinery
+                            (\rid{condition\_recover},
+                            \rid{term\_distribution\_support}) is
+                            in place; the $n$-ary mixture lemma and
+                            the coupling argument are next.
+                            \medskip
+                        \item[--] Goal: the same story for mixed
+                            quantum states, where the
+                            barycentric structure alone is not enough.
+                    \end{itemize}
+                    \vfill
+                    \begin{center}\large Thank you. Questions?
+                    \end{center}
+                \end{frame}
+
+                \appendix
+
+                \begin{frame}{References}
+                    \small
+                    \begin{itemize}
+                        \item R.~Mardare, P.~Panangaden, G.~D.~Plotkin.
+                            Quantitative algebraic reasoning. LICS'16.
+                        \item R.~Mardare, P.~Panangaden, G.~D.~Plotkin.
+                            On the axiomatizability of
+                            quantitative algebras. LICS'17.
+                        \item M.~Mio, R.~Sarkis, V.~Vignudelli.
+                            Universal quantitative algebra for
+                            fuzzy relations and
+                            generalised metric spaces. LMCS 20(4:19), 2024.
+                        \item M.~Mio. Compact quantitative
+                            theories of convex algebras.
+                            ENTICS, MFPS 2025.
+                        \item C.~Villani. Optimal Transport: Old
+                            and New. Springer, 2009.
+                        \item G.~Bacci, R.~Mardare,
+                            P.~Panangaden, G.~D.~Plotkin.
+                            Sum and tensor of quantitative
+                            effects. LMCS 20(4:9), 2024.
+                    \end{itemize}
+                \end{frame}
+
+                \end{document}

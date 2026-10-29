@@ -1,0 +1,116 @@
+% ============================================================
+%  Listings setup for Rocq source and for Rocq goal states
+% ============================================================
+
+\definecolor{rocqkw}{HTML}{5B4A7A}     % declaration heads only
+\definecolor{rocqcon}{HTML}{B3541E}    % constructors / our names
+\definecolor{rocqcom}{HTML}{6A737D}    % comments
+\definecolor{goalbg}{HTML}{F4F6F8}
+\definecolor{goalrule}{HTML}{C4CCD4}
+\definecolor{srcbg}{HTML}{FBF9F4}
+
+\lstdefinelanguage{Rocq}{
+  % Only the declaration heads are marked; everything else stays plain.
+  morekeywords=[1]{Record, Inductive, Definition, Fixpoint, Lemma, Theorem,
+    Proposition, Corollary, Notation, Section, End, Variable, Hypothesis,
+    Context, Proof, Qed, Defined},
+  sensitive=true,
+  morecomment=[n]{(*}{*)},
+  morestring=[b]",
+}
+
+\lstdefinestyle{rocqsrc}{
+  language=Rocq,
+  basicstyle=\ttfamily\fontsize{6.6pt}{7.5pt}\selectfont,
+  keywordstyle=[1]\color{rocqkw},
+  commentstyle=\color{rocqcom}\itshape,
+  showstringspaces=false,
+  columns=fullflexible,
+  keepspaces=true,
+  breaklines=true,
+  breakatwhitespace=false,
+  literate={->}{{$\rightarrow$}}2 {=>}{{$\Rightarrow$}}2
+           {<=}{{$\leq$}}2 {>=}{{$\geq$}}2 {|-}{{$\vdash$}}2
+           {\\/}{{$\vee$}}2 {/\\}{{$\wedge$}}2,
+  aboveskip=0.2em, belowskip=0.2em,
+}
+
+\lstdefinestyle{rocqgoal}{
+  style=rocqsrc,
+  basicstyle=\ttfamily\fontsize{6pt}{6.9pt}\selectfont,
+}
+
+\lstnewenvironment{rocq}[1][]{\lstset{style=rocqsrc,#1}}{}
+\lstnewenvironment{rocqg}[1][]{\lstset{style=rocqgoal,#1}}{}
+
+% A framed box for a proof-state dump
+% A proof state, split so the conclusion is unmistakable:
+%   upper part = hypotheses (context), lower part = what must be proved.
+\definecolor{goalconcbg}{HTML}{E3EDF6}
+\definecolor{goalconcfg}{HTML}{0C3149}
+
+\lstnewenvironment{gctx}[1][]{\lstset{style=rocqgoal,#1}}{}
+\lstnewenvironment{gconc}[1][]{%
+  \lstset{style=rocqgoal,
+    basicstyle=\ttfamily\fontsize{6.4pt}{7.3pt}\selectfont\color{goalconcfg},#1}}{}
+
+\newtcolorbox{goalbox}[1][]{
+  bicolor,
+  colback=goalbg, colbacklower=goalconcbg,
+  colframe=goalrule,
+  boxrule=0.4pt, arc=1pt,
+  left=2pt, right=2pt, top=1.5pt, bottom=1.5pt,
+  middle=1.5pt,
+  before skip=3pt, after skip=3pt,
+  fonttitle=\scriptsize\bfseries,
+  #1
+}
+
+\newtcblisting{srcbox}[1][]{
+  listing only,
+  listing options={style=rocqsrc},
+  colback=srcbg, colframe=goalrule,
+  boxrule=0.4pt, arc=1pt,
+  left=2pt, right=2pt, top=1.5pt, bottom=1.5pt,
+  before skip=3pt, after skip=3pt,
+  fonttitle=\scriptsize\bfseries,
+  #1
+}
+
+% ============================================================
+%  Stepped proof scripts: a script pane whose "current" line is
+%  highlighted, earlier lines normal, later lines dimmed.
+%
+%    \pstep{3}                 -- declare which step this slide shows
+%    \pline{0}{...}            -- context line, never dimmed
+%    \pline{n}{...}            -- line belonging to step n
+% ============================================================
+
+\definecolor{stepbg}{HTML}{FBEDC6}     % the line you are on
+\definecolor{stepdim}{HTML}{A9B1B9}    % not executed yet
+
+\newcommand{\pcur}{0}
+\newcommand{\pstep}[1]{\renewcommand{\pcur}{#1}}
+% a strut exactly one \baselineskip tall (so it tracks the pane's font
+% size), making consecutive highlighted lines merge into one block
+\newcommand{\pstrut}{\vrule height 0.76\baselineskip depth 0.24\baselineskip width 0pt}
+\newcommand{\pline}[2]{%
+  \ifnum#1=0\relax
+    \makebox[\linewidth][l]{\pstrut#2}%
+  \else\ifnum#1<\pcur\relax
+    \makebox[\linewidth][l]{\pstrut#2}%
+  \else\ifnum#1=\pcur\relax
+    {\setlength{\fboxsep}{0pt}%
+     \colorbox{stepbg}{\makebox[\linewidth][l]{\pstrut#2}}}%
+  \else
+    \makebox[\linewidth][l]{\pstrut\color{stepdim}#2}%
+  \fi\fi\fi\par}
+
+\newtcolorbox{scriptbox}[1][]{
+  colback=srcbg, colframe=goalrule,
+  boxrule=0.4pt, arc=1pt,
+  left=2pt, right=2pt, top=1.5pt, bottom=1.5pt,
+  before skip=3pt, after skip=3pt,
+  fontupper=\ttfamily\fontsize{6pt}{7.6pt}\selectfont\frenchspacing,
+  #1
+}

@@ -20,3 +20,14 @@ models/
 
 # papers
 docs/paper/*
+
+# LaTeX build artefacts (presentation/)
+*.fdb_latexmk
+*.fls
+*.listing
+*.log
+*.nav
+*.out
+*.snm
+*.toc
+*.vrb

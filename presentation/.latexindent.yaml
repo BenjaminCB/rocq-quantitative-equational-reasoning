@@ -1,0 +1,14 @@
+# Protect the Rocq listings from format-on-save.
+#
+# srcbox / scriptbox / gctx / gconc hold verbatim Rocq source and goal
+# states, where both the indentation and the line breaks are meaningful.
+# Reformatting them destroys the alignment, hard-wraps expressions
+# mid-term, and can inject a stray "%" at the start of a wrapped line
+# (which then renders literally, since the environment is verbatim).
+verbatimEnvironments:
+    srcbox: 1
+    scriptbox: 1
+    gctx: 1
+    gconc: 1
+    rocq: 1
+    rocqg: 1
