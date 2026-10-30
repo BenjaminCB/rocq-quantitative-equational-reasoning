@@ -283,3 +283,46 @@ Proof.
     move => delta Hdelta.
     apply: H0 delta Hdelta rho Hmode.
 Qed.
+
+(* ============================================================
+   Completeness
+   ============================================================ *)
+
+(** Semantic consequence (Def 2.18): [phi] holds in every model of [E]. *)
+Definition fuzzy_consequence {R : realType} {sig : signature}
+    (E : fuzzy_theory R sig) (X : fuzzy_space R)
+    (phi : @judgement R sig (fcarrier X)) : Prop :=
+  forall A : FuzzyAlgebra R sig, fuzzy_models A E -> satisfies A X phi.
+
+(** The paper only writes quantitative equations [s =_eps t] with
+    [eps] in [[0,1]].  [judgement] allows any real [eps], and completeness
+    fails without a lower bound: if [E] contains [x =_(-1) x] in a one-point
+    context [X] with [d(x,x) = 0], then no model of [E] interprets [X], so
+    [x =_(-5) x] is a consequence of [E], yet every derivable bound in [X]
+    is at least [-1].  Only the lower bound is needed: bounds above [1] are
+    harmless because of [FD_Max] and [FD_Up]. *)
+Definition fuzzy_theory_nonneg {R : realType} {sig : signature}
+    (E : fuzzy_theory R sig) : Prop :=
+  forall (X : fuzzy_space R) eps (s t : term sig (fcarrier X)),
+    E X (QEqJ eps s t) -> 0 <= eps.
+
+Lemma derives_full_consequence
+    {R : realType} {sig : signature}
+    (E : fuzzy_theory R sig) (X : fuzzy_space R)
+    (phi : @judgement R sig (fcarrier X)) :
+  derives_full E phi -> fuzzy_consequence E phi.
+Proof.
+  move => Hderive A Hmodel.
+  exact: derives_full_sound Hmodel Hderive.
+Qed.
+
+(** Completeness of the full (infinitary) system, [27]. *)
+Theorem derives_full_complete
+    {R : realType} {sig : signature}
+    (E : fuzzy_theory R sig) (X : fuzzy_space R)
+    (phi : @judgement R sig (fcarrier X)) :
+  fuzzy_theory_nonneg E ->
+  fuzzy_consequence E phi ->
+  derives_full E phi.
+Proof.
+Abort.
