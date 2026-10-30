@@ -69,7 +69,9 @@
           # practice of lagging opam bounds behind actual compatibility).
           mathcomp-zify = super.mathcomp-zify.override {
             mathcomp-boot = self.mathcomp-boot;
-            mathcomp-fingroup = self.mathcomp-fingroup;
+            # mczify's inputs are boot/order/algebra; it dropped
+            # mathcomp-fingroup, so passing that is an eval error now.
+            mathcomp-order = self.mathcomp-order;
             mathcomp-algebra = self.mathcomp-algebra;
             version = {
               version = "1.7.0";
