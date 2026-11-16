@@ -18,3 +18,4 @@ src/DensityTerms.v
 src/DensityEquality.v
 src/DensityDeduction.v
 src/DensitySoundness.v
+src/DensityCompleteness.v
