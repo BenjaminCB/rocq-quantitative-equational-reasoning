@@ -316,13 +316,26 @@ Proof.
   exact: derives_full_sound Hmodel Hderive.
 Qed.
 
-(** Completeness of the full (infinitary) system, [27]. *)
-Theorem derives_full_complete
+(** Under [fuzzy_theory_nonneg], every derivable bound is nonnegative.  This
+    is what makes the infimum of the derivable bounds between two terms a
+    fuzzy relation, see [FRelCompleteness.v]. *)
+Lemma frel_derives_nonneg
     {R : realType} {sig : signature}
-    (E : fuzzy_theory R sig) (X : fuzzy_space R)
+    (E : fuzzy_theory R sig)
+    (mode : frel_derivation_mode)
+    (X : fuzzy_space R)
     (phi : @judgement R sig (fcarrier X)) :
   fuzzy_theory_nonneg E ->
-  fuzzy_consequence E phi ->
-  derives_full E phi.
+  frel_derives E mode phi ->
+  if phi is QEqJ eps _ _ then 0 <= eps else True.
 Proof.
-Abort.
+  move => Hnonneg Hderive.
+  induction Hderive => //.
+  - case: phi H => [s t | eps s t] // H.
+    exact: Hnonneg H.
+  - exact: (andP (frel_range X x y)).1.
+  - by case: phi Hderive IHHderive.
+  - exact: le_trans IHHderive H.
+  - apply: le_of_all_strict_upper_bounds.
+    exact: H0.
+Qed.
