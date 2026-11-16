@@ -147,4 +147,86 @@ Proof.
     exact: FD_Up (ltW Hlt) Heps'.
 Qed.
 
+(* ------------------------------------------------------------
+   The term model F(X) (Def 5.4 - Def 5.6)
+   ------------------------------------------------------------ *)
+
+Definition tm_space : fuzzy_space R :=
+  {| fcarrier := tm_class;
+     frel := fun c c' => tm_dist (sval c) (sval c');
+     frel_range := fun c c' => tm_dist_range (sval c) (sval c') |}.
+
+Definition tm_ops : algebra_ops sig tm_class :=
+  fun f args => tm_cls (App f (fun i => sval (args i))).
+
+Definition tm_algebra : FuzzyAlgebra R sig :=
+  {| fa_space := tm_space; fa_ops := tm_ops |}.
+
+Lemma subst_term_equiv (Y : Type) (sigma tau : Y -> tm) (s : term sig Y) :
+  (forall y, tm_equiv (sigma y) (tau y)) ->
+  tm_equiv (subst_term sigma s) (subst_term tau s).
+Proof.
+  move => Hst.
+  elim: s => [y | f args IH] /=; first exact: Hst.
+  apply: FD_EqCong => i.
+  exact: IH.
+Qed.
+
+(** Lemma 5.7: evaluating a term in the term model amounts to substituting
+    the representatives picked by the interpretation. *)
+Lemma tm_evalP (Y : Type) (rho : Y -> tm_class) (s : term sig Y) :
+  tm_equiv (sval (fuzzy_eval tm_algebra rho s))
+    (subst_term (fun y => sval (rho y)) s).
+Proof.
+  elim: s => [y | f args IH] /=; first exact: tm_equiv_refl.
+  apply: tm_equiv_trans (tm_equiv_sym (tm_reprP _)) _.
+  apply: FD_EqCong => i.
+  exact: IH.
+Qed.
+
+(** Lemma 5.8: the term model is a model of [E]. *)
+Lemma tm_models : fuzzy_models tm_algebra E.
+Proof.
+  move => Y phi HE rho.
+  pose sigma y := sval (rho y).
+  have Hsubst : @derives_full R sig E X (subst_judgement sigma phi).
+    apply: FD_Subst (FD_Init _ HE) _ => x y.
+    apply/tm_distP.
+    exact: (interpretation_nexp rho).
+  case: phi HE Hsubst => [s t | eps s t] _ /= Hsubst.
+  - apply: tm_class_eq.
+    apply: tm_equiv_trans (tm_evalP rho s) _.
+    apply: tm_equiv_trans Hsubst _.
+    exact: tm_equiv_sym (tm_evalP rho t).
+  - apply/tm_distP.
+    apply: FD_QEqReplaceL (tm_evalP rho s) _.
+    apply: FD_QEqReplaceR Hsubst _.
+    exact: tm_equiv_sym (tm_evalP rho t).
+Qed.
+
+(* ------------------------------------------------------------
+   The interpretation of the generators (Lemma 5.9, Lemma 5.12)
+   ------------------------------------------------------------ *)
+
+Lemma tm_var_nexp :
+  frel_nonexpansive X tm_space (fun x => tm_cls (Var x)).
+Proof.
+  move => x y /=.
+  apply/tm_distP.
+  apply: FD_QEqReplaceL (tm_equiv_sym (tm_reprP (Var x))) _.
+  apply: FD_QEqReplaceR (tm_reprP (Var y)).
+  exact: FD_UseVariables.
+Qed.
+
+Definition tm_var : interpretation X tm_algebra :=
+  @Build_interpretation R sig X tm_algebra _ tm_var_nexp.
+
+Lemma tm_var_evalP s : tm_equiv (sval (fuzzy_eval tm_algebra tm_var s)) s.
+Proof.
+  apply: tm_equiv_trans (tm_evalP tm_var s) _.
+  rewrite -[X in tm_equiv _ X]subst_term_var.
+  apply: subst_term_equiv => x.
+  exact: tm_equiv_sym (tm_reprP (Var x)).
+Qed.
+
 End TermModel.
