@@ -17,6 +17,19 @@
       inputs.nixpkgs.follows = "nixpkgs";
       inputs.rust-overlay.follows = "rust-overlay";
     };
+
+    # Sources of the QOT library (quantum optimal transport and layered
+    # graphs). Taken as plain sources, not as a flake: the library is rebuilt
+    # below against this flake's own MathComp, since its own flake pins a
+    # different one and the compiled files of the two would not load together.
+    #
+    # The branch mathcomp-2.6 holds the port to MathComp 2.6. It is read from
+    # the local checkout until it is pushed; after that the url should be
+    # git+ssh://git@github.com/BenjaminCB/mechanizing-quantum-optimal-transport.git?ref=mathcomp-2.6
+    qot-src = {
+      url = "git+file:///home/bcb/mechanizing-quantum-optimal-transport?ref=mathcomp-2.6";
+      flake = false;
+    };
   };
 
   outputs = {
@@ -25,6 +38,7 @@
     flake-utils,
     rust-overlay,
     codex,
+    qot-src,
   }:
     flake-utils.lib.eachDefaultSystem (
       system: let
@@ -179,6 +193,60 @@
         });
 
         /*
+        The libraries QOT is built on, from the package set above.
+        mathcomp-real-closed gives the complex numbers R[i], and
+        mathcomp-reals-stdlib makes Stdlib's R a realType and an rcfType.
+        */
+        qotDeps = with coqPackages; [
+          stdlib
+          mathcomp
+          mathcomp-ssreflect
+          mathcomp-algebra
+          mathcomp-field
+          mathcomp-finmap
+          mathcomp-real-closed
+          mathcomp-analysis
+          mathcomp-reals-stdlib
+          mathcomp-algebra-tactics
+          mathcomp-zify
+          hierarchy-builder
+        ];
+
+        /*
+        The QOT library (logical name QOT), compiled from qot-src with the
+        package set above and installed where rocq-core.withPackages looks.
+        */
+        qot = pkgs.stdenv.mkDerivation {
+          pname = "coq-mechanizing-quantum-optimal-transport";
+          version = "0.1.0";
+
+          src = qot-src;
+
+          nativeBuildInputs = [pkgs.which];
+          buildInputs = [coqPackages.rocq-core] ++ qotDeps;
+          propagatedBuildInputs = qotDeps;
+
+          enableParallelBuilding = true;
+
+          # The repository tracks a generated makefile and its dependency
+          # file, which name the store paths of another environment.
+          buildPhase = ''
+            runHook preBuild
+            rm -f CoqMakeFile CoqMakeFile.conf .CoqMakeFile.d
+            rocq makefile -f _CoqProject -o CoqMakeFile
+            make -f CoqMakeFile -j''${NIX_BUILD_CORES:-1}
+            runHook postBuild
+          '';
+
+          installPhase = ''
+            runHook preInstall
+            make -f CoqMakeFile install \
+              COQLIBINSTALL=$out/lib/coq/${coqPackages.rocq-core.rocq-version}/user-contrib
+            runHook postInstall
+          '';
+        };
+
+        /*
         rocqEnv is the actual Coq/Rocq environment used by your project.
 
         It contains:
@@ -200,6 +268,12 @@
             mathcomp-reals
             mathcomp-finmap
             mathcomp-analysis
+
+            # Complex numbers and Stdlib's R as a realType, and the QOT
+            # library built on them (see qot above).
+            mathcomp-real-closed
+            mathcomp-reals-stdlib
+            qot
 
             # Reflexive ring/field/lra/nra tactics for MathComp structures.
             # Provides mathcomp.algebra_tactics.ring and
@@ -326,6 +400,7 @@
         };
       in {
         packages.default = pkgs.hello;
+        packages.qot = qot;
 
         devShells.default = pkgs.mkShell {
           packages = [

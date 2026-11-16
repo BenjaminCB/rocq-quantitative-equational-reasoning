@@ -58,11 +58,29 @@
         "type": "github"
       }
     },
+    "qot-src": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1794865030,
+        "narHash": "sha256-61Q3XMrW4OrLcaw7wiwyJznLArTlK3ItGD1AB8p8w2E=",
+        "ref": "mathcomp-2.6",
+        "rev": "55ca8347bc2ce9a6d74414fdb2162e9278b4c48b",
+        "revCount": 22,
+        "type": "git",
+        "url": "file:///home/bcb/mechanizing-quantum-optimal-transport"
+      },
+      "original": {
+        "ref": "mathcomp-2.6",
+        "type": "git",
+        "url": "file:///home/bcb/mechanizing-quantum-optimal-transport"
+      }
+    },
     "root": {
       "inputs": {
         "codex": "codex",
         "flake-utils": "flake-utils",
         "nixpkgs": "nixpkgs",
+        "qot-src": "qot-src",
         "rust-overlay": "rust-overlay"
       }
     },
