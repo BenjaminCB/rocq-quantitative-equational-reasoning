@@ -32,6 +32,11 @@ Proof. by rewrite nsqE mulrC. Qed.
 Lemma nsq_ge0 (z : C) : 0 <= nsq z.
 Proof. by rewrite /nsq addr_ge0 // sqr_ge0. Qed.
 
+Lemma nsq_eq0 (z : C) : (nsq z == 0) = (z == 0).
+Proof.
+by rewrite -(inj_eq (@complexI _)) nsqE mulf_eq0 conjC_eq0 orbb.
+Qed.
+
 Lemma nsq_conj (z : C) : nsq (conjC z) = nsq z.
 Proof. by apply: complexI; rewrite !nsqE conjCK mulrC. Qed.
 
