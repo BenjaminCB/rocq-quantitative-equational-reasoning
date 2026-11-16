@@ -230,3 +230,44 @@ Proof.
 Qed.
 
 End TermModel.
+
+(** Completeness of the full (infinitary) system, [27, Theorem 5.13]. *)
+Theorem derives_full_complete
+    {R : realType} {sig : signature}
+    (E : fuzzy_theory R sig) (X : fuzzy_space R)
+    (phi : @judgement R sig (fcarrier X)) :
+  fuzzy_theory_nonneg E ->
+  fuzzy_consequence E phi ->
+  derives_full E phi.
+Proof.
+  move => Hnonneg Hcons.
+  have Hsat := Hcons _ (@tm_models R sig E X Hnonneg)
+    (@tm_var R sig E X Hnonneg).
+  have Heval := @tm_var_evalP R sig E X Hnonneg.
+  case: phi Hcons Hsat => [s t | eps s t] _ /= Hsat.
+  - apply: FD_EqTrans (FD_EqSym (Heval s)) _.
+    rewrite Hsat.
+    exact: Heval.
+  - apply: FD_QEqReplaceL (FD_EqSym (Heval s)) _.
+    apply: FD_QEqReplaceR (Heval t).
+    apply/(@tm_distP R sig E X Hnonneg).
+    exact: Hsat.
+Qed.
+
+(** Together with [derives_full_sound]: derivability in the full system and
+    semantic consequence coincide, [27, Corollary 5.14]. *)
+Corollary derives_full_iff_consequence
+    {R : realType} {sig : signature}
+    (E : fuzzy_theory R sig) (X : fuzzy_space R)
+    (phi : @judgement R sig (fcarrier X)) :
+  fuzzy_theory_nonneg E ->
+  derives_full E phi <-> fuzzy_consequence E phi.
+Proof.
+  move => Hnonneg; split.
+  - exact: derives_full_consequence.
+  - exact: derives_full_complete.
+Qed.
+
+Set Silent.
+Print Assumptions derives_full_complete.
+Unset Silent.
