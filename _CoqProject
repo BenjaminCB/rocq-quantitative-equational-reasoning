@@ -16,3 +16,4 @@ src/ICAKantorovichSoundness.v
 src/BarycentricNormalization.v
 src/DensityTerms.v
 src/DensityEquality.v
+src/DensityDeduction.v
