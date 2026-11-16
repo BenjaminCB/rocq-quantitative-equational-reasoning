@@ -15,3 +15,4 @@ src/KantorovichCompactness.v
 src/ICAKantorovichSoundness.v
 src/BarycentricNormalization.v
 src/DensityTerms.v
+src/DensityEquality.v
