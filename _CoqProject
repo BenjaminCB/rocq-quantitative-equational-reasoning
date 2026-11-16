@@ -1,4 +1,9 @@
 -Q src Template
+
+-arg -w -arg -notation-overridden
+-arg -w -arg -ambiguous-paths
+-arg -w -arg -redundant-canonical-projection
+
 src/Signature.v
 src/ProbabilityDistribution.v
 src/FuzzyRelation.v
@@ -9,3 +14,4 @@ src/KantorovichProperties.v
 src/KantorovichCompactness.v
 src/ICAKantorovichSoundness.v
 src/BarycentricNormalization.v
+src/DensityTerms.v
