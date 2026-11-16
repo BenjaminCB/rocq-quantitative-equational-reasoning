@@ -3,6 +3,7 @@ src/Signature.v
 src/ProbabilityDistribution.v
 src/FuzzyRelation.v
 src/FRelDeduction.v
+src/FRelCompleteness.v
 src/ICA.v
 src/KantorovichProperties.v
 src/KantorovichCompactness.v
